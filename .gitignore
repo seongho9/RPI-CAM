@@ -11,5 +11,5 @@ CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
 
-./rpi_cam_app/build
-./rpi_cam_app/.vscode
+rpi_cam_app/build
+rpi_cam_app/.vscode
