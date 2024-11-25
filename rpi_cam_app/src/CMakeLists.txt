@@ -3,11 +3,13 @@
 add_executable(
     main
     main.cpp
+    config/EventConfig.cpp config/HttpConfig.cpp config/VideoConfig.cpp config/ProgramConfig.cpp
 )
 
 target_include_directories(
     main
     PRIVATE
+    "${CMAKE_SOURCE_DIR}/include"
     ${DEFAULT_LIB_INC}
     ${GSTREAMER_INC}
 )
@@ -17,4 +19,5 @@ target_link_libraries(
     main
     gstreamer-1.0 gobject-2.0 glib-2.0
     ssl crypto microhttpd
+    boost_json
 )

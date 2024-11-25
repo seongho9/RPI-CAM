@@ -3,11 +3,6 @@ cmake_minimum_required(VERSION 3.12)
 project(SNACK_CAM VERSION 0.1)
 cmake_policy(SET CMP0079 NEW)
 
-# CXX set
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 17)
-
 # set target os and architecture
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR aarch64)
@@ -34,6 +29,11 @@ set(CMAKE_C_FLAGS
 set(CMAKE_CXX_FLAGS 
     "-mcpu=cortex-a76 -march=armv8.2-a+crypto -mbranch-protection=standard -fstack-protector-strong -O2 -D_FORTIFY_SOURCE=2 -Wformat -Wformat-security -Werror=format-security")
 
+# CXX set
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD 17)
+
 # debug flag
 set(CMAKE_BUILD_TYPE Debug)
 
@@ -42,6 +42,9 @@ set(CMAKE_BUILD_TYPE Debug)
 # default library path
 set(DEFAULT_LIB_INC "${CMAKE_SYSROOT}/usr/include")
 set(DEFAULT_LIB_LIB "${CMAKE_SYSROOT}/usr/lib")
+
+message(STATUS "DEFAULT_LIB_INC ${DEFAULT_LIB_INC}")
+message(STATUS "DEFAULT_LIB_LIB ${DEFAULT_LIB_LIB}")
 
 link_directories(${DEFAULT_LIB_LIB})
 include_directories(${DEFAULT_LIB_INC})
@@ -71,4 +74,6 @@ message(STATUS "GLIB_INC: ${GLIB_INC_2}")
 add_subdirectory(src)
 add_subdirectory(test)
 
-include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories("${CMAKE_SOURCE_DIR}/include")
+
+message(STATUS "${CMAKE_SOURCE_DIR}/include")
