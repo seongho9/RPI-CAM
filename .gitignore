@@ -13,3 +13,5 @@ CMakeUserPresets.json
 
 rpi_cam_app/build
 rpi_cam_app/.vscode
+
+.vscode/
