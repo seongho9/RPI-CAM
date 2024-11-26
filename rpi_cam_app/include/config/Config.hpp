@@ -9,9 +9,16 @@ namespace config
     class Config
     {
     private:
+
+        /// @brief config.json을 파시ㅏㅇ
+        /// @return 성공하면 0, 아니면 1
         virtual int read_config()=0;
     public:
         Config() = default;
+
+        /// @brief config.json을 읽고 해당하는 object를 가져옴
+        /// @param json_file json파일 경로
+        /// @return 성공하면 0, 아니면 1
         virtual int set_file(const std::string& json_file)=0;
     };
 };
