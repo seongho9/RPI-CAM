@@ -46,6 +46,24 @@ static MHD_Result event_header_iter(void *cls, enum MHD_ValueKind kid, const cha
     }
 }
 
+/// @brief event 전송 후 응답을 받기 위한 callback
+/// @param contents response 데이터
+/// @param size 크기
+/// @param nmemb block 개수
+/// @param userp 넘겨 받은 변수
+/// @return userp byte 크기
+static size_t event_send_callback(void* contents, size_t size, size_t nmemb, void *userp)
+{
+    size_t real_size = size * nmemb;
+
+    char* data = static_cast<char*>(userp);
+
+    data = static_cast<char*>(malloc(real_size+1));
+
+    memcpy(data, contents, real_size);
+
+    return real_size;
+}
 
 
 int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_t size)
@@ -125,7 +143,88 @@ int EventHandlerHTTP::video_accpet(MHD_Connection* conn, const char* data, size_
 
 int EventHandlerHTTP::event_send(CURL* curl, const char* group_name, time_t time)
 {
-    return 0;
+    CURLcode res;
+
+    std::tm* tm;
+
+    std::stringstream payload_stream;
+    std::stringstream time_stream;
+
+    boost::property_tree::ptree payload_tree;
+
+    std::string request_url = _server_address + "/event";
+    std::string request;
+    char* response;
+
+    //  event를 전송 할 수 있는 master 디바이스 인지 확인
+    if(_device_mode != config::DEVICE_MODE::MASTER) {
+        spdlog::error("This device is not master device");
+        return 4;
+    }
+
+    //  현 IP 카메라에 등록된 event인지 확인
+    bool flag = false;
+    for(auto event:_event_group) {
+        if(!strcmp(event.c_str(), group_name)){
+            flag = true;
+            break;
+        }
+    }
+    //  현 카메라에 등록된 event가 아니라면
+    if(!flag){
+        spdlog::error("No Such event group {}", group_name);
+        return 3;
+    }
+
+    curl = curl_easy_init();
+    if(curl) {
+        tm = std::localtime(&time);
+
+        time_stream << std::put_time(tm, "%Y-%m-%dT%H:%M:%S");
+
+        payload_tree.put("group", group_name);
+        payload_tree.put("time", time);
+        payload_tree.put("localtime", time_stream.str());
+        
+        // 요청 url
+        curl_easy_setopt(curl, CURLOPT_URL, request_url);
+
+        // response 처리
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, event_send_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
+
+        // user-agent 설정
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+
+        // payload 설정
+        boost::property_tree::write_json(payload_stream, payload_tree);
+        request = payload_stream.str();
+
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, request.size());
+
+        // 전송
+        res = curl_easy_perform(curl);
+
+        if(res != CURLE_OK){
+            spdlog::error("event send faield : {}", curl_easy_strerror(res));
+            spdlog::error("error message : {}", response);
+
+            curl_easy_cleanup(curl);
+            return 2;
+        }
+        else {
+            spdlog::info("event send : {}", response);
+
+            curl_easy_cleanup(curl);
+            return 0;
+        }
+    }   
+    else {
+        spdlog::error("failed to create curl object");
+
+        return 1;
+    }
 }
 
 int EventHandlerHTTP::video_send(CURL* curl, const char* path, const char* event_id)
