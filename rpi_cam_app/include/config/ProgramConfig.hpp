@@ -5,6 +5,7 @@
 #include "config/EventConfig.hpp"
 #include "config/VideoConfig.hpp"
 #include "config/CameraConfig.hpp"
+#include "config/DeviceConfig.hpp"
 
 #include "utils/Singleton.hpp"
 
@@ -17,6 +18,7 @@ namespace config
         HttpConfig* _http_config = nullptr;
         VideoConfig* _video_config = nullptr;
         CameraConfig* _camera_config = nullptr;
+        DeviceConfig* _device_config = nullptr;
 
         int read_config(Config* config);
 
@@ -36,6 +38,9 @@ namespace config
         /// @brief CameraConfig 객체를 가져옴(Camera device 관련 설정 값)
         /// @return 실패시 nullptr, 성공시 해당하는 객체의 주소
         const CameraConfig* camera_config();
+        /// @brief DeviceConfig 객체를 가져옴(IP카메라의 속성을 설정하는 값)
+        /// @return 실패시 nullptr, 성공시 해당하는 객체의 주소
+        const DeviceConfig* device_config();
     };
 };
 #endif

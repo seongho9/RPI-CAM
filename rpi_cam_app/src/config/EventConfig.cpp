@@ -24,13 +24,14 @@ int EventConfig::set_file(const std::string& json_file)
 int EventConfig::read_config()
 {
     try {
-        BOOST_FOREACH(boost::property_tree::ptree::value_type &vt, _props)
-        {
+        BOOST_FOREACH(boost::property_tree::ptree::value_type& vt, _props){
             std::string name = vt.second.get<std::string>("event_name");
             int fps = vt.second.get<int>("fps");
+            std::string group = vt.second.get<std::string>("event_group");
 
             _name.push_back(name);
             _fps.insert({name,fps});
+            _group.insert({name, group});
         }
     } catch(boost::property_tree::ptree_bad_path& ex) {
         spdlog::error("path error : {}", ex.what());
@@ -50,6 +51,17 @@ const int EventConfig::event_fps(const std::string& name) const
 
     if(item == _fps.end()){
         return -1;
+    }
+
+    return item->second;
+}
+
+const std::string EventConfig::event_group(const std::string& name) const
+{
+    auto item = _group.find(name);
+
+    if(item == _group.end()){
+        return "-1";
     }
 
     return item->second;

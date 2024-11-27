@@ -20,7 +20,8 @@ namespace config
         std::vector<std::string> _name;
         /// @brief event가 요구하는 fps, -1이면 별도 이미지를 요구하지 않음
         std::unordered_map<std::string, int> _fps;
-
+        /// @brief event가 소속되어 있는 그룹
+        std::unordered_map<std::string, std::string> _group;
         int read_config() override;
     public:
         EventConfig() = default;
@@ -34,6 +35,11 @@ namespace config
         /// @param name event의 명칭
         /// @return fps
         const int event_fps(const std::string& name) const;
+        /// @brief event 이름이 속해있는 그룹
+        /// @param name event의 명칭
+        /// @return event_group
+        const std::string event_group(const std::string& name) const;
+
     };
 };
 
