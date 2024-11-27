@@ -3,7 +3,7 @@
 add_executable(
     main
     main.cpp
-    config/EventConfig.cpp config/HttpConfig.cpp config/VideoConfig.cpp config/ProgramConfig.cpp config/CameraConfig.cpp
+    config/EventConfig.cpp config/HttpConfig.cpp config/VideoConfig.cpp config/ProgramConfig.cpp config/CameraConfig.cpp config/DeviceConfig.cpp
 )
 
 target_include_directories(
@@ -18,6 +18,6 @@ target_include_directories(
 target_link_libraries(
     main
     gstreamer-1.0 gobject-2.0 glib-2.0
-    ssl crypto microhttpd
+    ssl crypto microhttpd curl
     boost_json
 )
