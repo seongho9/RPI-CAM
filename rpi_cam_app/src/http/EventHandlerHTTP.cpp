@@ -65,6 +65,17 @@ static size_t event_send_callback(void* contents, size_t size, size_t nmemb, voi
     return real_size;
 }
 
+EventHandlerHTTP::EventHandlerHTTP()
+{
+    config::ProgramConfig* whole_config = config::ProgramConfig::get_instance();
+
+    _tls_enabled = whole_config->http_config()->tls_enable();
+
+    _server_address = whole_config->device_config()->server_address();
+    _event_group = whole_config->device_config()->event_group();
+    _device_mode = whole_config->device_config()->mode();
+
+}
 
 int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_t size)
 {
