@@ -229,6 +229,50 @@ int EventHandlerHTTP::event_send(CURL* curl, const char* group_name, time_t time
 
 int EventHandlerHTTP::video_send(CURL* curl, const char* path, const char* event_id)
 {
+   CURLcode res;
+
+    std::string request_url = _server_address + "/video";
+
+    curl_mime* form = nullptr;
+    curl_mimepart* field = nullptr;
+
+    struct curl_slist* header_list = nullptr;
+    
+    curl = curl_easy_init();
+    if(curl) {
+        //  create form
+        form = curl_mime_init(curl);
+        
+        // event_id part
+        field = curl_mime_addpart(form);
+        curl_mime_name(field, "event_id");
+        curl_mime_data(field, event_id, CURL_ZERO_TERMINATED);
+
+        // video data part
+        field = curl_mime_addpart(form);
+        curl_mime_name(field, "data");
+        curl_mime_filedata(field, path);
+        curl_mime_type(field, "video/mp4");
+
+        curl_easy_setopt(curl, CURLOPT_URL, request_url);
+        curl_easy_setopt(curl, CURLOPT_MIMEPOST, form);
+
+        res = curl_easy_perform(curl);
+
+        if(res != CURLE_OK) {
+            spdlog::error("event {} video send failed", event_id);
+
+            curl_easy_cleanup(curl);
+            curl_mime_free(form);
+            return 1;
+        }
+        else{
+            curl_easy_cleanup(curl);
+            curl_mime_free(form);
+
+            return 0;            
+        }
+    }
     return 0;
 }
 
