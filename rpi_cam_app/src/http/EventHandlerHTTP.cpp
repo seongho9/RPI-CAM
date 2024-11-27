@@ -278,5 +278,93 @@ int EventHandlerHTTP::video_send(CURL* curl, const char* path, const char* event
 
 int EventHandlerHTTP::camerainfo_send(CURL* curl, const char* payload)
 {    
+   CURLcode res;
+
+    std::stringstream payload_stream;
+
+    boost::property_tree::ptree payload_tree;
+    boost::property_tree::ptree event_group_tree;
+
+    std::string request_url = _server_address + "/info";
+    std::string request;
+    char* response;
+
+
+    curl = curl_easy_init();
+    if(curl) {
+
+        payload_tree.put("address", get_current_dir_name());
+        payload_tree.put("mode", config::convert_device_mode_str(_device_mode));
+        for(auto event: _event_group){
+            event_group_tree.put("", event);
+        }
+        payload_tree.put("event_groups", event_group_tree);
+        
+        // 요청 url
+        curl_easy_setopt(curl, CURLOPT_URL, request_url);
+
+        // response 처리
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, event_send_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
+
+        // user-agent 설정
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+
+        // payload 설정
+        boost::property_tree::write_json(payload_stream, payload_tree);
+        request = payload_stream.str();
+
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, request.size());
+
+        // 전송
+        res = curl_easy_perform(curl);
+
+        if(res != CURLE_OK){
+            spdlog::error("event send faield : {}", curl_easy_strerror(res));
+            spdlog::error("error message : {}", response);
+
+            curl_easy_cleanup(curl);
+            return 2;
+        }
+        else {
+            spdlog::info("event send : {}", response);
+
+            curl_easy_cleanup(curl);
+            return 0;
+        }
+    }   
+    else {
+        spdlog::error("failed to create curl object");
+
+        return 1;
+    }
+}
+
+int EventHandlerHTTP::get_current_ipv4(std::string* ip_addr)
+{
+    struct ifaddrs* ifaddr, *ifa;
+
+    char host[NI_MAXHOST];
+
+    if(getifaddrs(&ifaddr) == -1) {
+        spdlog::error("failed to get ip address");
+        return -1;
+    }
+
+    for(ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
+        if(ifa->ifa_addr == nullptr)
+            continue;
+        
+        // IPv4 확인
+        if(ifa->ifa_addr->sa_family == AF_INET) {
+            void *addr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+
+            inet_ntop(AF_INET, addr, host, NI_MAXHOST);
+        }
+    }
+
+    ip_addr->append(host);
+
     return 0;
 }
