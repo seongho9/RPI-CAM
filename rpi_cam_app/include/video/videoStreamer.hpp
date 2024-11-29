@@ -6,8 +6,8 @@ namespace video{
         
     public:
         VideoStreamer();
-        virtual int start_server()=0;
-        virtual int stop_server()=0;
+        virtual int start_server();
+        virtual int stop_server();
     };
 }
 
