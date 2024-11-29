@@ -32,7 +32,7 @@ int VideoConfig::read_config()
         _height = _props.get<int>("height");
 
         _frame_rate = _props.get<std::string>("framerate");
-        _format = _props.get<std::string>("foramt");
+        _format = _props.get<std::string>("format");
 
         _split_time = _props.get<int>("split-time");
         _duration = _props.get<int>("duration");
