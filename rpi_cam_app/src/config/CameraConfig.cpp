@@ -42,6 +42,9 @@ int CameraConfig::read_config()
         int width = _props.get<int>("width");
         int height = _props.get<int>("height");
         std::string format = _props.get<std::string>("format");
+        _metadata.set_width(width);
+        _metadata.set_height(height);
+        _fps = _props.get<int>("fps");
 
         if(format == "V4L2_PIX_FMT_RGB24"){
             _metadata.set_type(V4L2_PIX_FMT_RGB24);
@@ -57,6 +60,12 @@ int CameraConfig::read_config()
     catch(boost::property_tree::ptree_bad_path& ex) {
         spdlog::error("path error : {}", ex.what());
     }
+
+    spdlog::info("===Event Handling Video Information===");
+    spdlog::info("{} * {}", _metadata.get_width(),_metadata.get_height());
+    spdlog::info("frame_rate : {}", _fps);
+    spdlog::info("foramt : {}", _metadata.get_type());
+    spdlog::info("device file path : {}", _device_path);
 
     return 0;
 }
@@ -87,4 +96,9 @@ const std::string& CameraConfig::device_path() const
 const VideoMeta& CameraConfig::metadata() const
 {
     return _metadata;
+}
+
+const int& CameraConfig::fps() const
+{
+    return _fps;
 }

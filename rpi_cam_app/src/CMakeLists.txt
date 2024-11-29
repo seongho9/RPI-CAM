@@ -3,8 +3,7 @@
 add_executable(
     main
     main.cpp
-    config/EventConfig.cpp config/HttpConfig.cpp config/VideoConfig.cpp config/ProgramConfig.cpp config/CameraConfig.cpp config/DeviceConfig.cpp
-    http/EventHandlerHTTP.cpp http/HttpInitializer.cpp
+    config/HttpConfig.cpp config/VideoConfig.cpp config/ProgramConfig.cpp config/CameraConfig.cpp
 )
 
 target_include_directories(

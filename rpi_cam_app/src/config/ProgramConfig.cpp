@@ -8,19 +8,6 @@ ProgramConfig::ProgramConfig()
     spdlog::info("Program Config");
 }
 
-const EventConfig* ProgramConfig::event_config()
-{
-    if(_event_config == nullptr) {
-        _event_config = new EventConfig();
-
-        if(read_config(static_cast<Config*>(_event_config))) {
-            return nullptr;
-        }
-    }
-
-    return _event_config;
-}
-
 const HttpConfig* ProgramConfig::http_config()
 {
     if(_http_config == nullptr) {
