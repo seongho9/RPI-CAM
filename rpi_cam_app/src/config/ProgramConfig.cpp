@@ -47,17 +47,6 @@ const CameraConfig* ProgramConfig::camera_config()
     return _camera_config;
 }
 
-const DeviceConfig* ProgramConfig::device_config()
-{
-    if(_device_config == nullptr) {
-        _device_config = new DeviceConfig();
-
-        if(read_config(static_cast<Config*>(_device_config))) {
-            return nullptr;
-        }
-    }
-    return _device_config;
-}
 int ProgramConfig::read_config(Config* config)
 {
     return config->set_file("config.json");
