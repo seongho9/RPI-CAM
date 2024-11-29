@@ -100,8 +100,8 @@ static MHD_Result iterate_program_post(void* coninfo_cls,
 EventHandlerHTTP::EventHandlerHTTP()
 {
     config::ProgramConfig* whole_config = config::ProgramConfig::get_instance();
-    _server_address = whole_config->device_config()->server_address();
-    _upload_client = 2;
+    _server_address = whole_config->http_config()->remote_server();
+    _upload_client = whole_config->http_config()->upload_user();
 }
 
 int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_t* size, void** con_cls)

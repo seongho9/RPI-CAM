@@ -1,5 +1,5 @@
 #include "config/ProgramConfig.hpp"
-#include "spdlog/spdlog.h"
+#include "http/HttpInitializer.hpp"
 
 int main(int argc, char const *argv[])
 {
@@ -10,6 +10,12 @@ int main(int argc, char const *argv[])
     const config::VideoConfig* vid = config->video_config();
 
     const config::CameraConfig* cam = config->camera_config();
+
+    http::HttpInitializer* init = http::HttpInitializer::get_instance();
+
+    init->init();
+    init->start();
+    
 
     return 0;
 }

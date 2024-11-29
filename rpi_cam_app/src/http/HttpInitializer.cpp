@@ -148,7 +148,7 @@ int HttpInitializer::init()
 {
     if(_config->tls_enable()) {
         _daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNALLY,
-            8000, NULL, NULL,
+            _config->port(), NULL, NULL,
             &libmicrohttpd_handler, NULL,
             MHD_OPTION_THREAD_POOL_SIZE, _config->thread_pool(),
             MHD_OPTION_HTTPS_MEM_KEY, _config->private_file(),
@@ -170,7 +170,7 @@ int HttpInitializer::init()
         return 1;
     }
     spdlog::info("======================================");
-    spdlog::info("HTTP Server is running on PORT {}", 8000);
+    spdlog::info("HTTP Server is running on PORT {}", _config->port());
     spdlog::info("======================================");
 
     return 0;
