@@ -37,7 +37,7 @@ namespace config
         const int& width() const;
         const int& height() const;
         const std::string& frame_rate() const;
-        const std::string& foramt() const;
+        const std::string& format() const;
         const int split_time() const;
         const int duration() const;
     };

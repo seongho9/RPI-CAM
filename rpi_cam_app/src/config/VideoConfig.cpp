@@ -70,7 +70,7 @@ const std::string& VideoConfig::frame_rate() const
     return _frame_rate;
 }
 
-const std::string& VideoConfig::foramt() const
+const std::string& VideoConfig::_format() const
 {
     return _format;
 }
