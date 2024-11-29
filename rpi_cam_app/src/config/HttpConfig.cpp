@@ -29,6 +29,12 @@ int HttpConfig::read_config()
         _thread_pool = _props.get<int>("thread_pool_size");
 
         _tls_enabled = _props.get<int>("tls");
+
+        _port = _props.get<int>("port");
+
+        _remote_server = _props.get<std::string>("remote_server");
+
+        _upload_user = _props.get<int>("upload_clients");
     }
     catch(boost::property_tree::ptree_bad_path& ex) {
         spdlog::error("path error : {}", ex.what());
@@ -57,4 +63,19 @@ const int& HttpConfig::thread_pool() const
 const int& HttpConfig::tls_enable() const
 {
     return _tls_enabled;
+}
+
+const int& HttpConfig::upload_user() const
+{
+    return _upload_user;
+}
+
+const int& HttpConfig::port() const
+{
+    return _port;
+}
+
+const std::string& HttpConfig::remote_server() const
+{
+    return _remote_server;
 }
