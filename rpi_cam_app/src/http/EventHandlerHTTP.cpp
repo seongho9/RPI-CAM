@@ -3,22 +3,16 @@
 #include <chrono>
 #include <iomanip>  // std::put_time
 #include <ctime>
+#include <sys/types.h>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <sstream>
-
-extern "C"
-{
-    #include <unistd.h>
-    #include <sys/types.h>
-    #include <ifaddrs.h>
-    #include <netdb.h>
-    #include <arpa/inet.h>
-
-}
+#define POSTBUFFSIZE 1073741824 // 1GB
 #include "http/EventHandlerHTTP.hpp"
+#include <iostream>
 #include "spdlog/spdlog.h"
 #include "config/ProgramConfig.hpp"
+
 
 using namespace http;
 
@@ -28,22 +22,20 @@ using namespace http;
 /// @param key key 값
 /// @param value value 값
 /// @return 만약 iteratoring 중이라면 MHD_NO를 return
-static MHD_Result event_header_iter(void *cls, enum MHD_ValueKind kid, const char* key, const char* value)
+static MHD_Result event_header_iter(void* cls, enum MHD_ValueKind kid, const char* key, const char* value)
 {
     if(!strcmp(key, "event_id")){
-        
-        char* event_id = static_cast<char*>(cls);
-        event_id = new char[strlen(value)+1];
+        char* event_id = (char*)cls;
 
         memcpy(event_id, value, strlen(value)+1);
+        spdlog::debug("{}", event_id);
 
         //  순회 중단
-        return MHD_Result::MHD_YES;
-    }
-    else {
-        //  순회 지속
         return MHD_Result::MHD_NO;
     }
+
+    //  순회 지속
+     return MHD_Result::MHD_YES;
 }
 
 /// @brief event 전송 후 응답을 받기 위한 callback
@@ -58,58 +50,85 @@ static size_t event_send_callback(void* contents, size_t size, size_t nmemb, voi
 
     char* data = static_cast<char*>(userp);
 
-    data = static_cast<char*>(malloc(real_size+1));
-
-    memcpy(data, contents, real_size);
+    memcpy(data, contents, 1024);
 
     return real_size;
 }
 
+/// @brief POST data를 처리하기 위해 사용, key-value 형태로 사용됨
+/// @param coninfo_cls 커스텀 값으로, iterate 함수 내에서 사용
+/// @param  MHD_ValueKind 값은 종류
+/// @param key \0으로 끝나는 key 값
+/// @param filename 업로드 된 파일명, 모르면 NULL
+/// @param content_type mime-type
+/// @param transfer_encoding 데이터 인코딩으로, 모르면 NULL
+/// @param data 데이터
+/// @param off 데이터 offset
+/// @param size 데이터 크기
+/// @return MHD_Result::YES : iterating을 지속, MHD_Result::NO : iterationg을 끝냄
+static MHD_Result iterate_program_post(void* coninfo_cls, 
+    enum MHD_ValueKind kind, const char* key, const char* filename, const char* content_type, const char* transfer_encoding, 
+    const char* data, uint64_t off, size_t size)
+{
+    struct connection_info* con_info = static_cast<struct connection_info*>(coninfo_cls);
+
+    if(!strcmp(key, "name")) {
+        con_info->file_name.assign(data, size);
+    }
+    else if(!strcmp(key, "fps")) {
+        con_info->fps.assign(data, size);
+    }
+    else if(!strcmp(key, "file")) {
+        if(off==0){
+            con_info->file_content.clear();
+        }
+        con_info->file_content.insert(con_info->file_content.end(), data, data+size);
+    }
+
+    //  프로그램 파일 업로드 완료
+    if(size==0){
+        spdlog::info("program size : {}", con_info->file_content.size());
+        spdlog::info("File upload done");
+        return MHD_NO;
+    }
+    //  프로그램 파일 업로드 진행 중
+    else{
+        return MHD_YES;
+    }
+
+}
 EventHandlerHTTP::EventHandlerHTTP()
 {
     config::ProgramConfig* whole_config = config::ProgramConfig::get_instance();
-
-    _tls_enabled = whole_config->http_config()->tls_enable();
-
     _server_address = whole_config->device_config()->server_address();
-    _event_group = whole_config->device_config()->event_group();
-    _device_mode = whole_config->device_config()->mode();
-
+    _upload_client = 2;
 }
 
-int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_t size)
+int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_t* size, void** con_cls)
 {
     struct MHD_Response* response = nullptr;
+    std::string response_buffer;
     MHD_Result ret = MHD_NO;
 
-    char* event_id = nullptr;
+    char* event_id = new char[POSTBUFFSIZE];
 
     // 반환 값 순회한 header 값의 개수
-    MHD_get_connection_values(
-        conn, MHD_ValueKind::MHD_HEADER_KIND, 
-        event_header_iter, event_id);
-    
+    MHD_get_connection_values(conn, MHD_ValueKind::MHD_HEADER_KIND, event_header_iter, event_id);
+
     // HTTP 헤더에 event_id가 존재하지 않음
     if(event_id == nullptr){
-        std::string error = "event_id is not included in HTTP header";
-        response = MHD_create_response_from_buffer(error.size(), (void*)error.c_str(), MHD_RESPMEM_MUST_COPY);
+        ret = send_response(conn, response_buffer, MHD_HTTP_BAD_REQUEST);
+        con_cls = nullptr;
 
-        spdlog::debug("event_id is not included");
-
-        ret = MHD_queue_response(conn, MHD_HTTP_BAD_REQUEST, response);
-
-        if(ret != MHD_Result::MHD_YES) {
-            spdlog::error("HTTP response send Error");
-        }
-        else{
-            return 1;
-        }
+        return ret;
     }
     // HTTP 헤더에 event_id가 존재
     else {
         spdlog::info("event {} accept", event_id); 
 
-        std::string event(event_id);
+        std::string event;
+        event.assign(event_id);
+
         event += ".mp4";
 
         // video processing 호출 /////////  
@@ -117,11 +136,10 @@ int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_
         /////////////////////////////////
 
         // 이벤트 파일 존재
-        if(access(event.c_str(), F_OK)){
+        if(access(event.c_str(), F_OK) != -1){
             
-            std::string ok = "success";
-            response = MHD_create_response_from_buffer(ok.size(), (void*)ok.c_str(), MHD_RESPMEM_MUST_COPY);
-            ret = MHD_queue_response(conn, MHD_HTTP_OK, response);
+            response_buffer.assign("success");
+            ret = send_response(conn, response_buffer, MHD_HTTP_OK);
 
             CURL* curl;
             video_send(curl, event.c_str(), event_id);
@@ -130,29 +148,99 @@ int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_
         else{
             spdlog::error("event file {} is not exist", event);
 
-            std::string no_file = "event video is not exist";
-            response = MHD_create_response_from_buffer(no_file.size(),(void*)no_file.c_str(), MHD_RESPMEM_MUST_COPY);
-
-            ret = MHD_queue_response(conn, MHD_HTTP_NOT_FOUND, response);
+            response_buffer.assign("event video is not exist");
+            ret = send_response(conn, response_buffer, MHD_HTTP_NOT_FOUND);
         }
     }
-
-    if(response == nullptr){
-        spdlog::error("HTTP resonse object error");
-        return MHD_Result::MHD_NO;
-    }
-    else{
-        MHD_destroy_response(response);
-        return MHD_Result::MHD_YES;
-    }
+    con_cls = nullptr;
+    return ret;
 }
 
-int EventHandlerHTTP::video_accpet(MHD_Connection* conn, const char* data, size_t size)
+int EventHandlerHTTP::video_accpet(MHD_Connection* conn, const char* data, size_t* size, void** con_cls)
 {
     return 0;
 }
 
-int EventHandlerHTTP::event_send(CURL* curl, const char* group_name, time_t time)
+int EventHandlerHTTP::program_accept(MHD_Connection* conn, const char* data, size_t* size, void** con_cls)
+{
+
+    struct connection_info* con_info;
+
+    if(*con_cls == nullptr) {
+        spdlog::info("/program accept");
+        con_info = nullptr;
+
+        _upload_client_mutex.lock();
+        if(_upload_client <= 0) {
+            _upload_client_mutex.unlock();
+            spdlog::info("program upload busy");
+
+            return send_response(conn, "program upload busy, try again later", MHD_HTTP_SERVICE_UNAVAILABLE);
+        }
+        _upload_client--;
+        _upload_client_mutex.unlock();
+
+        con_info = new connection_info();
+        if(con_info == nullptr) {
+            _upload_client_mutex.lock();
+            _upload_client++;
+            _upload_client_mutex.unlock();
+            spdlog::error("failed to create post infomation");
+            return send_response(conn, "Internanl Server Error", MHD_HTTP_INTERNAL_SERVER_ERROR);
+        }
+        con_info->postprocessor=nullptr;
+        con_info->file_content.clear();
+        con_info->file_name.assign("");
+        con_info->fps.assign("");
+        con_info->upload_done = false;
+
+
+        con_info->postprocessor = MHD_create_post_processor(conn, POSTBUFFSIZE, iterate_program_post, (void *)con_info);
+        
+        if(con_info->postprocessor == 0x0) {
+            delete con_info;
+            spdlog::error("failed to create post processor");
+            spdlog::debug("postprocessor addr {}", (void*)con_info->postprocessor);
+            spdlog::debug("{} {}", (void*)nullptr, (void*)NULL);
+            return send_response(conn, "Internanl Server Error", MHD_HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+
+        con_info->connection_type = HTTP_METHOD::POST;
+        
+        *con_cls = con_info;
+
+        return MHD_Result::MHD_YES;
+    }
+    else {
+        con_info = static_cast<struct connection_info*>(*con_cls);
+        if(*size != 0) {
+            spdlog::debug("data size {}", *size);
+            MHD_post_process(con_info->postprocessor, data, *size);
+            *size = 0;
+            return MHD_Result::MHD_YES;
+        }
+        else {
+            con_info->upload_done = true;
+            spdlog::debug("data size 0");
+
+            if(con_info->file_name == "" || con_info->file_content.empty() || con_info->fps == ""){
+                spdlog::info("Bad Request");
+
+                send_response(conn, "bad request", MHD_HTTP_BAD_REQUEST);
+
+                return MHD_Result::MHD_YES;
+            }
+            
+            if(con_info->upload_done) {
+                send_response(conn, "program file saved", MHD_HTTP_OK);
+            }
+            return MHD_Result::MHD_YES;
+        }
+    }
+}
+
+int EventHandlerHTTP::event_send(CURL* curl, const char* event_name, time_t time)
 {
     CURLcode res;
 
@@ -165,77 +253,23 @@ int EventHandlerHTTP::event_send(CURL* curl, const char* group_name, time_t time
 
     std::string request_url = _server_address + "/event";
     std::string request;
-    char* response;
 
-    //  event를 전송 할 수 있는 master 디바이스 인지 확인
-    if(_device_mode != config::DEVICE_MODE::MASTER) {
-        spdlog::error("This device is not master device");
-        return 4;
-    }
+    tm = std::localtime(&time);
 
-    //  현 IP 카메라에 등록된 event인지 확인
-    bool flag = false;
-    for(auto event:_event_group) {
-        if(!strcmp(event.c_str(), group_name)){
-            flag = true;
-            break;
-        }
-    }
-    //  현 카메라에 등록된 event가 아니라면
-    if(!flag){
-        spdlog::error("No Such event group {}", group_name);
-        return 3;
-    }
+    time_stream << std::put_time(tm, "%Y-%m-%dT%H:%M:%S");
 
-    curl = curl_easy_init();
-    if(curl) {
-        tm = std::localtime(&time);
+    payload_tree.put("description ", "hello world");
+    payload_tree.put("time", time);
+    payload_tree.put("localtime", time_stream.str());
 
-        time_stream << std::put_time(tm, "%Y-%m-%dT%H:%M:%S");
+    // payload 설정
+    boost::property_tree::write_json(payload_stream, payload_tree);
+    request = payload_stream.str();
 
-        payload_tree.put("group", group_name);
-        payload_tree.put("time", time);
-        payload_tree.put("localtime", time_stream.str());
-        
-        // 요청 url
-        curl_easy_setopt(curl, CURLOPT_URL, request_url);
+    spdlog::debug("request url : {}", request_url);
+    spdlog::debug("request payload : {}", request);
 
-        // response 처리
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, event_send_callback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
-
-        // user-agent 설정
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
-
-        // payload 설정
-        boost::property_tree::write_json(payload_stream, payload_tree);
-        request = payload_stream.str();
-
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, request.size());
-
-        // 전송
-        res = curl_easy_perform(curl);
-
-        if(res != CURLE_OK){
-            spdlog::error("event send faield : {}", curl_easy_strerror(res));
-            spdlog::error("error message : {}", response);
-
-            curl_easy_cleanup(curl);
-            return 2;
-        }
-        else {
-            spdlog::info("event send : {}", response);
-
-            curl_easy_cleanup(curl);
-            return 0;
-        }
-    }   
-    else {
-        spdlog::error("failed to create curl object");
-
-        return 1;
-    }
+    return send_request(curl, request_url, request);
 }
 
 int EventHandlerHTTP::video_send(CURL* curl, const char* path, const char* event_id)
@@ -287,7 +321,7 @@ int EventHandlerHTTP::video_send(CURL* curl, const char* path, const char* event
     return 0;
 }
 
-int EventHandlerHTTP::camerainfo_send(CURL* curl, const char* payload)
+int EventHandlerHTTP::camerainfo_send(CURL* curl, const std::string& uuid)
 {    
    CURLcode res;
 
@@ -300,19 +334,25 @@ int EventHandlerHTTP::camerainfo_send(CURL* curl, const char* payload)
     std::string request;
     char* response;
 
+    payload_tree.put("cam_id", uuid);
 
+    boost::property_tree::write_json(payload_stream, payload_tree);
+    request = payload_stream.str();
+    
+    spdlog::debug("request url {}", request_url);
+    spdlog::debug("request payload: {} ", request);
+    
+    return send_request(curl, request_url, request);
+}
+
+int EventHandlerHTTP::send_request(CURL* curl, const std::string& url, const std::string& payload)
+{
+    CURLcode res;
+    char response[1024];
     curl = curl_easy_init();
     if(curl) {
-
-        payload_tree.put("address", get_current_dir_name());
-        payload_tree.put("mode", config::convert_device_mode_str(_device_mode));
-        for(auto event: _event_group){
-            event_group_tree.put("", event);
-        }
-        payload_tree.put("event_groups", event_group_tree);
-        
         // 요청 url
-        curl_easy_setopt(curl, CURLOPT_URL, request_url);
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
 
         // response 처리
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, event_send_callback);
@@ -321,12 +361,8 @@ int EventHandlerHTTP::camerainfo_send(CURL* curl, const char* payload)
         // user-agent 설정
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 
-        // payload 설정
-        boost::property_tree::write_json(payload_stream, payload_tree);
-        request = payload_stream.str();
-
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, request.size());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, payload.size());
 
         // 전송
         res = curl_easy_perform(curl);
@@ -347,35 +383,39 @@ int EventHandlerHTTP::camerainfo_send(CURL* curl, const char* payload)
     }   
     else {
         spdlog::error("failed to create curl object");
-
+        curl_easy_cleanup(curl);
         return 1;
     }
 }
 
-int EventHandlerHTTP::get_current_ipv4(std::string* ip_addr)
+MHD_Result EventHandlerHTTP::send_response(MHD_Connection* conn, const std::string& payload, int status)
 {
-    struct ifaddrs* ifaddr, *ifa;
+    MHD_Response* response = nullptr;
+    MHD_Result ret = MHD_NO;
+    response = MHD_create_response_from_buffer(payload.size(), (void*)payload.c_str(), MHD_RESPMEM_MUST_COPY);
 
-    char host[NI_MAXHOST];
-
-    if(getifaddrs(&ifaddr) == -1) {
-        spdlog::error("failed to get ip address");
-        return -1;
+    if(response == nullptr) {
+        return ret;
     }
 
-    for(ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
-        if(ifa->ifa_addr == nullptr)
-            continue;
-        
-        // IPv4 확인
-        if(ifa->ifa_addr->sa_family == AF_INET) {
-            void *addr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+    ret = MHD_queue_response(conn, status, response);
 
-            inet_ntop(AF_INET, addr, host, NI_MAXHOST);
-        }
+    if(ret == MHD_Result::MHD_YES) {
+        MHD_destroy_response(response);
+        return ret;
     }
+    else {
+        MHD_destroy_response(response);
+        spdlog::error("HTTP response send failed");
+        return ret;
+    }
+}
 
-    ip_addr->append(host);
-
-    return 0;
+std::mutex& EventHandlerHTTP::upload_client_mutex()
+{
+    return _upload_client_mutex;
+}
+int& EventHandlerHTTP::upload_client()
+{
+    return _upload_client;
 }
