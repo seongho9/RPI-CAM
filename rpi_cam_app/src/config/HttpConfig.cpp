@@ -22,6 +22,7 @@ int HttpConfig::set_file(const std::string& json_file)
 
 int HttpConfig::read_config()
 {
+    spdlog::info("Http Config");
     try {
         _crt_file = _props.get<std::string>("cert_file");
         _private_file = _props.get<std::string>("private_file");
@@ -40,6 +41,16 @@ int HttpConfig::read_config()
         spdlog::error("path error : {}", ex.what());
 
         return 1;
+    }
+    spdlog::info("===Http Server Information===");
+    spdlog::info("thread pool size : {}", _thread_pool);
+    spdlog::info("tls {}", _tls_enabled == 0 ? "disabled" : "enabled");
+    spdlog::info("port : {}", _port);
+    spdlog::info("Program Concurrent upload User : {}", _upload_user);
+    spdlog::info("Remote Server Address : {}", _remote_server);
+    if(_tls_enabled != 0){
+        spdlog::info("cert file : {}", _crt_file);
+        spdlog::info("key file : {}", _private_file);
     }
 
     return 0;
