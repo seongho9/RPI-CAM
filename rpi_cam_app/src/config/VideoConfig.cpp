@@ -32,7 +32,7 @@ int VideoConfig::read_config()
         _height = _props.get<int>("height");
 
         _frame_rate = _props.get<std::string>("framerate");
-        _foramt = _props.get<std::string>("foramt");
+        _format = _props.get<std::string>("foramt");
 
         _split_time = _props.get<int>("split-time");
         _duration = _props.get<int>("duration");
@@ -45,7 +45,7 @@ int VideoConfig::read_config()
     spdlog::info("===Video Streaming Information===");
     spdlog::info("{} * {}", _width, _height);
     spdlog::info("frame_rate : {}", _frame_rate);
-    spdlog::info("foramt : {}", _foramt);
+    spdlog::info("foramt : {}", _format);
 
     spdlog::info("===Video Save Information===");
     spdlog::info("Saving Loop duration : {}", _split_time);
@@ -72,7 +72,7 @@ const std::string& VideoConfig::frame_rate() const
 
 const std::string& VideoConfig::foramt() const
 {
-    return _foramt;
+    return _format;
 }
 
 const int VideoConfig::split_time() const
