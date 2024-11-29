@@ -1,11 +1,14 @@
 #include "video/videoInitializer.hpp"
 #include "spdlog/spdlog.h"
 #include <sstream>
+using namespace video;
 
-video::VideoInitializer::VideoInitializer(): _streamer(), _handler(*utils::Singleton<VideoHandler>::get_instance()){
+VideoInitializer::VideoInitializer(){
+    _handler= VideoHandler::get_instance();
+    _streamer = new VideoStreamerGST();
 
 }
-void video::VideoInitializer::init(){
+void VideoInitializer::init(){
     int argc = 0;
     char **argv = nullptr;
 
@@ -20,7 +23,7 @@ int video::VideoInitializer::start(){
     
     spdlog::info("Starting video streaming...");
 
-    if(_streamer.start_server()!= 0){
+    if(_streamer->start_server()!= 0){
         spdlog::error("Failed to start GstStreamer");
         return -1;
     }
