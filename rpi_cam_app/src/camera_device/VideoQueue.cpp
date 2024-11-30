@@ -109,5 +109,38 @@ VideoBuffer* VideoQueue::pop(std::string name)
 
 int VideoQueue::distribute_buffer()
 {
-    return 0;
+    while(true) {
+        std::unique_lock<std::mutex> lock(_input_mutex);
+        // _input에 VideoBuffer가 들어올 때까지 대기
+        // _input에 데이터가 있다면 굳이 대기할 필요 없음
+        _input_cond.wait(lock,[&](){ return !_input.empty();});
+
+        VideoBuffer* input = _input.front();
+        VideoBuffer* copy_to = nullptr;
+
+        // 초당 프레임 리셋
+        if((++_current_frame_no) > _device_fps){
+            _current_frame_no = 1;
+        }
+
+        // 각 thread의 정보를 통해 복사
+        for(auto& item : _thread_info){
+            if( (_current_frame_no % item.second->_fps) == 0 ){
+                //  lock 획득
+                std::unique_lock<std::mutex> q_lock(item.second->_mutex);
+
+                // VideoBuffer 만큼 할당 후 복사
+                copy_to = new VideoBuffer();
+                memcpy(copy_to, input, sizeof(*input));
+
+                // output buffer에 reference push
+                _output.find(item.first)->second.push(copy_to);
+                copy_to=nullptr;
+
+                // notify thread
+                item.second->_cond_t.notify_all();
+            }
+        }
+        delete input;
+    }
 }
