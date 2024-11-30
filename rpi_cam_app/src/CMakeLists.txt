@@ -4,6 +4,7 @@ add_executable(
     main
     main.cpp
     config/HttpConfig.cpp config/VideoConfig.cpp config/ProgramConfig.cpp config/CameraConfig.cpp
+    camera_device/VideoQueue.cpp
 )
 
 target_include_directories(
