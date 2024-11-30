@@ -48,7 +48,26 @@ int VideoQueue::insert_event(std::string name, ThreadInfo* thread_info)
 
 int VideoQueue::remove_event(std::string name)
 {
+    _thread_info_mutex.lock();
 
+    auto item = _thread_info.find(name);
+    if(item == _thread_info.end()) {
+        spdlog::error("Event {} is not exist in VideoQeue", name);
+
+        _thread_info_mutex.unlock();
+        return 1;
+    }
+    else {
+        item->second->_is_run = false;
+        item->second->_cond_t.notify_all();
+
+        _thread_info.erase(name);
+
+        spdlog::info("Event {} Thread has been removed from VideoQeue", name);
+
+        _thread_info_mutex.unlock();
+        return 0;
+    }
 }
 
 
