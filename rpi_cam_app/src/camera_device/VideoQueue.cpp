@@ -82,7 +82,29 @@ int VideoQueue::push(VideoBuffer* buffer)
 
 VideoBuffer* VideoQueue::pop(std::string name)
 {
-    return nullptr;
+    //  해당이름의 스레드 정보가 존재하지 않음
+    if(_thread_info.find(name) == _thread_info.end()) {
+        spdlog::error("Thread information of Event {} is not exist", name);
+
+        return nullptr;
+    }
+    //  해당이름의 비디오 큐가 존재하지 않음
+    if(_output.find(name) == _output.end()) {
+        spdlog::error("Video Queue of Event {} is not exist", name);
+
+        return nullptr;
+    }
+
+    std::unique_lock<std::mutex> lock(_thread_info.find(name)->second->_mutex);
+    _thread_info.find(name)->second->_cond_t.wait(
+        lock, 
+        [&](){  return !_output.find(name)->second.empty();  });
+    
+    
+    VideoBuffer* ret = _output.find(name)->second.front();
+    _output.find(name)->second.pop();
+
+    return ret;
 }
 
 int VideoQueue::distribute_buffer()
