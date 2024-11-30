@@ -73,6 +73,10 @@ int VideoQueue::remove_event(std::string name)
 
 int VideoQueue::push(VideoBuffer* buffer)
 {
+    std::unique_lock<std::mutex> lock(_input_mutex);
+    _input.push(buffer);
+    _input_cond.notify_one();
+
     return 0;
 }
 
