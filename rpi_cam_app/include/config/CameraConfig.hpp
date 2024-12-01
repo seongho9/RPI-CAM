@@ -5,6 +5,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include "config/Config.hpp"
+#include "utils/Singleton.hpp"
 
 namespace config
 {
@@ -23,7 +24,7 @@ namespace config
         const int& get_width() const;
         const int& get_height() const;
     };
-    class CameraConfig : public Config
+    class CameraConfig : public Config, public utils::Singleton<CameraConfig>
     {
     private:
         boost::property_tree::ptree _props;
