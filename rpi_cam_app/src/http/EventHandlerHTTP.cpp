@@ -16,6 +16,13 @@
 
 using namespace http;
 
+EventHandlerHTTP::EventHandlerHTTP()
+{
+    config::ProgramConfig* whole_config = config::ProgramConfig::get_instance();
+    _server_address = whole_config->http_config()->remote_server();
+    _upload_client = whole_config->http_config()->upload_user();
+}
+
 /// @brief "event_id를 가져오기 위한 함수"
 /// @param cls event_id를 넘겨주기 위한 변수(char*로 casting하여 사용)
 /// @param kid 순회하는 종류로 여기에서는 MHD_ValueKind::MHD_HEADER_KIND
@@ -26,82 +33,13 @@ static MHD_Result event_header_iter(void* cls, enum MHD_ValueKind kid, const cha
 {
     if(!strcmp(key, "event_id")){
         char* event_id = (char*)cls;
-
         memcpy(event_id, value, strlen(value)+1);
-        spdlog::debug("{}", event_id);
 
         //  순회 중단
         return MHD_Result::MHD_NO;
     }
-
     //  순회 지속
      return MHD_Result::MHD_YES;
-}
-
-/// @brief event 전송 후 응답을 받기 위한 callback
-/// @param contents response 데이터
-/// @param size 크기
-/// @param nmemb block 개수
-/// @param userp 넘겨 받은 변수
-/// @return userp byte 크기
-static size_t event_send_callback(void* contents, size_t size, size_t nmemb, void *userp)
-{
-    size_t real_size = size * nmemb;
-
-    char* data = static_cast<char*>(userp);
-
-    memcpy(data, contents, 1024);
-
-    return real_size;
-}
-
-/// @brief POST data를 처리하기 위해 사용, key-value 형태로 사용됨
-/// @param coninfo_cls 커스텀 값으로, iterate 함수 내에서 사용
-/// @param  MHD_ValueKind 값은 종류
-/// @param key \0으로 끝나는 key 값
-/// @param filename 업로드 된 파일명, 모르면 NULL
-/// @param content_type mime-type
-/// @param transfer_encoding 데이터 인코딩으로, 모르면 NULL
-/// @param data 데이터
-/// @param off 데이터 offset
-/// @param size 데이터 크기
-/// @return MHD_Result::YES : iterating을 지속, MHD_Result::NO : iterationg을 끝냄
-static MHD_Result iterate_program_post(void* coninfo_cls, 
-    enum MHD_ValueKind kind, const char* key, const char* filename, const char* content_type, const char* transfer_encoding, 
-    const char* data, uint64_t off, size_t size)
-{
-    struct connection_info* con_info = static_cast<struct connection_info*>(coninfo_cls);
-
-    if(!strcmp(key, "name")) {
-        con_info->file_name.assign(data, size);
-    }
-    else if(!strcmp(key, "fps")) {
-        con_info->fps.assign(data, size);
-    }
-    else if(!strcmp(key, "file")) {
-        if(off==0){
-            con_info->file_content.clear();
-        }
-        con_info->file_content.insert(con_info->file_content.end(), data, data+size);
-    }
-
-    //  프로그램 파일 업로드 완료
-    if(size==0){
-        spdlog::info("program size : {}", con_info->file_content.size());
-        spdlog::info("File upload done");
-        return MHD_NO;
-    }
-    //  프로그램 파일 업로드 진행 중
-    else{
-        return MHD_YES;
-    }
-
-}
-EventHandlerHTTP::EventHandlerHTTP()
-{
-    config::ProgramConfig* whole_config = config::ProgramConfig::get_instance();
-    _server_address = whole_config->http_config()->remote_server();
-    _upload_client = whole_config->http_config()->upload_user();
 }
 
 int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_t* size, void** con_cls)
@@ -117,6 +55,7 @@ int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_
 
     // HTTP 헤더에 event_id가 존재하지 않음
     if(event_id == nullptr){
+        response_buffer.assign("event id is not exist");
         ret = send_response(conn, response_buffer, MHD_HTTP_BAD_REQUEST);
         con_cls = nullptr;
 
@@ -159,6 +98,48 @@ int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_
 int EventHandlerHTTP::video_accpet(MHD_Connection* conn, const char* data, size_t* size, void** con_cls)
 {
     return 0;
+}
+
+/// @brief POST data를 처리하기 위해 사용, key-value 형태로 사용됨
+/// @param coninfo_cls 커스텀 값으로, iterate 함수 내에서 사용
+/// @param  MHD_ValueKind 값은 종류
+/// @param key \0으로 끝나는 key 값
+/// @param filename 업로드 된 파일명, 모르면 NULL
+/// @param content_type mime-type
+/// @param transfer_encoding 데이터 인코딩으로, 모르면 NULL
+/// @param data 데이터
+/// @param off 데이터 offset
+/// @param size 데이터 크기
+/// @return MHD_Result::YES : iterating을 지속, MHD_Result::NO : iterationg을 끝냄
+static MHD_Result iterate_program_post(void* coninfo_cls, 
+    enum MHD_ValueKind kind, const char* key, const char* filename, const char* content_type, const char* transfer_encoding, 
+    const char* data, uint64_t off, size_t size)
+{
+    struct connection_info* con_info = static_cast<struct connection_info*>(coninfo_cls);
+
+    if(!strcmp(key, "name")) {
+        con_info->file_name.assign(data, size);
+    }
+    else if(!strcmp(key, "fps")) {
+        con_info->fps.assign(data, size);
+    }
+    else if(!strcmp(key, "file")) {
+        if(off==0){
+            con_info->file_content.clear();
+        }
+        con_info->file_content.insert(con_info->file_content.end(), data, data+size);
+    }
+
+    //  multipart 파일 순회 완료
+    if(size==0){
+        spdlog::info("program size : {}", con_info->file_content.size());
+        spdlog::info("multipart iteratino done");
+        return MHD_NO;
+    }
+    //  프로그램 파일 업로드 진행 중
+    else{
+        return MHD_YES;
+    }
 }
 
 int EventHandlerHTTP::program_accept(MHD_Connection* conn, const char* data, size_t* size, void** con_cls)
@@ -215,20 +196,35 @@ int EventHandlerHTTP::program_accept(MHD_Connection* conn, const char* data, siz
     else {
         con_info = static_cast<struct connection_info*>(*con_cls);
         if(*size != 0) {
-            spdlog::debug("data size {}", *size);
             MHD_post_process(con_info->postprocessor, data, *size);
             *size = 0;
             return MHD_Result::MHD_YES;
         }
         else {
             con_info->upload_done = true;
-            spdlog::debug("data size 0");
 
+            if(con_info->file_name.find("/") != con_info->file_name.npos){
+                spdlog::error("Invalid file name");
+
+                send_response(conn, "Invalid file name", MHD_HTTP_BAD_REQUEST);
+                return MHD_Result::MHD_YES;
+            }
+
+            try {
+                int fps = std::stoi(con_info->fps);
+                //  만약 시스템 설정 fps값을 넘어서면 error 호출을 추가 할거면 추가할 것
+
+            }
+            catch(std::invalid_argument& ex){
+                spdlog::error("Invalid fps value");
+
+                send_response(conn, "Invalid fps value", MHD_HTTP_BAD_REQUEST);
+                return MHD_Result::MHD_YES;
+            }
             if(con_info->file_name == "" || con_info->file_content.empty() || con_info->fps == ""){
-                spdlog::info("Bad Request");
+                spdlog::info("Some element is empty");
 
                 send_response(conn, "bad request", MHD_HTTP_BAD_REQUEST);
-
                 return MHD_Result::MHD_YES;
             }
             
@@ -238,6 +234,23 @@ int EventHandlerHTTP::program_accept(MHD_Connection* conn, const char* data, siz
             return MHD_Result::MHD_YES;
         }
     }
+}
+
+/// @brief event 전송 후 응답을 받기 위한 callback
+/// @param contents response 데이터
+/// @param size 크기
+/// @param nmemb block 개수
+/// @param userp 넘겨 받은 변수
+/// @return userp byte 크기
+static size_t event_send_callback(void* contents, size_t size, size_t nmemb, void *userp)
+{
+    size_t real_size = size * nmemb;
+
+    char* data = static_cast<char*>(userp);
+
+    memcpy(data, contents, 1024);
+
+    return real_size;
 }
 
 int EventHandlerHTTP::event_send(CURL* curl, const char* event_name, time_t time)

@@ -14,6 +14,14 @@
 namespace http
 {
 
+    /// @brief microhttpd 데몬 생성시 들어가는 핸들러 함수
+    MHD_Result libmicrohttpd_handler(
+            void* cls, struct MHD_Connection*conn, const char* url, const char* method,
+            const char* version, const char* upload_data, size_t* data_size, void** con_cls);
+
+    void post_request_complete(
+        void *cls, struct MHD_Connection* conn, void** con_cls, enum MHD_RequestTerminationCode toe);
+
     class HttpInitializer : public utils::Initialzier, public utils::Singleton<HttpInitializer>
     {
     private:
@@ -22,6 +30,7 @@ namespace http
         struct MHD_Daemon* _daemon;
 
         friend utils::Singleton<HttpInitializer>;
+
         HttpInitializer();
 
     public:
