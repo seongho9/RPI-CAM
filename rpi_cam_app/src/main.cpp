@@ -54,6 +54,25 @@ int main(int argc, char const *argv[])
     // 이벤트 발생하면 video_initializer->set_event();
     // video_initializer->event();
 
+    /*std::thread event([&]{
+        spdlog::info("Listening event.....");
+        while(true){
+            video_initializer->event();
+        }
+    });
+
+    video_initializer->set_event(); // 임의 이벤트 트리거
+
+    int maintain_time = 10; //임시 설정. 10분
+    std::string path = "/home/pi/send"; //임시 설정. 완료된 영상을 서버에게 잘 보냈을 경우 파일이 있는 위치
+    std::thread remove_video([&]{
+        video_handler->remove_video(maintain_time, path);
+    });
+
+    event.join();
+    remove_video.join();*/
+
+
     // Stop video streaming and saving
     if (video_initializer->stop() != 0) {
         spdlog::error("Failed to stop video streaming server.");
