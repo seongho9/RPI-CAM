@@ -82,7 +82,7 @@ std::string VideoStreamerGST::createPipeline(const config::VideoConfig& config) 
 int VideoStreamerGST::start_server(){
     
     make_server();
-    createPipeline(_video_config);
+    
     // 서버 활성화
     gst_rtsp_media_factory_set_launch(mfactory, pipeline.c_str());
 
