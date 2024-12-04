@@ -1,5 +1,5 @@
-#ifndef VIDEOSTREAMER_HPP
-#define VIDEOSTREAMER_HPP
+#ifndef VIDEO_STREAMER_HPP
+#define VIDEO_STREAMER_HPP
 
 namespace video{
     class VideoStreamer{
@@ -11,4 +11,4 @@ namespace video{
     };
 }
 
-#endif VIDEOSTREAMER_HPP
+#endif VIDEO_STREAMER_HPP

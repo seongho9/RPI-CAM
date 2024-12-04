@@ -1,11 +1,11 @@
 
-#ifndef VIDEOSTREAMERGST_HPP
-#define VIDEOSTREAMERGST_HPP
+#ifndef VIDEO_STREAMERGST_HPP
+#define VIDEO_STREAMERGST_HPP
 
 #include <gst/gst.h>
 #include <gst/rtsp-server/rtsp-server.h>
 #include "config/VideoConfig.hpp"
-#include "video/videoStreamer.hpp"
+#include "video/VideoStreamer.hpp"
 
 namespace video{
     class VideoStreamerGST: public VideoStreamer{
@@ -28,4 +28,4 @@ namespace video{
     };  
 }
 
-#endif VIDEOSTREAMERGST_HPP
+#endif VIDEO_STREAMERGST_HPP
