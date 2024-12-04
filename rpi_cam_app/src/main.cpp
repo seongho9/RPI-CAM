@@ -4,26 +4,16 @@
 #include <atomic>
 #include <unistd.h>
 
-std::atomic<bool> event_video(false); 
-
-
-void listen_for_video_events() {
-    while (!event_video) {
-        
-        spdlog::info("이벤트가 발생했습니다");
-        event_video = true; 
-    }
-}
 
 int main(int argc, char const *argv[])
 {
     config::ProgramConfig* config = config::ProgramConfig::get_instance();
 
-    // config::EventConfig ev = config->event_config();
-    // spdlog::info("event names ");
-    // for (auto item : ev.event_name()){
-    //     spdlog::info("{} {} fps", item, ev.event_fps(item));
-    // }
+    config::EventConfig ev = config->event_config();
+    spdlog::info("event names ");
+    for (auto item : ev.event_name()){
+        spdlog::info("{} {} fps", item, ev.event_fps(item));
+    }
 
 
     const config::HttpConfig* http = config->http_config();
@@ -48,40 +38,42 @@ int main(int argc, char const *argv[])
 
     spdlog::info("init");
 
-    //video 부분
+    //--------------------video-----------------------
 
     video::VideoInitializer* video_initializer = video::VideoInitializer::get_instance();
-
+    video::VideoHandler* video_handler = video::VideoHandler::get_instance();
     video_initializer->init();
     if (video_initializer->start() != 0) {
         spdlog::error("Failed to start video streaming server.");
         return -1;
     }
-    std::thread event_listener_thread(listen_for_video_events);
     
-    video::VideoHandler* video_handler = video::VideoHandler::get_instance();
-    
-    while (!event_video) {
-        sleep(10);
+    std::thread streaming([&](){
+        spdlog::info("Start Video streaming and saving");
+        video_initializer->start();
+    });
+    std::thread event([&]{
+        spdlog::info("Listening event.....");
+        video_initializer->set_event();
+    });
+    while(true){
+        video_initializer->event();
+        sleep(30);
     }
+    int maintain_time = 10; //임시 설정. 10분
+    std::string path = "/home/pi/send"; //임시 설정. 완료된 영상을 서버에게 잘 보냈을 경우 파일이 있는 위치
+    std::thread remove_video([&]{
+        video_handler->remove_video(maintain_time, path);
+    });
+    streaming.join();
+    event.join();
+    remove_video.join();
 
-    std::string event_id = "event123"; // 임시 event_id 
-    time_t timestamp = time(0);        // 임시 timestamp
-
-    if (video_handler->process_video(timestamp, event_id) != 0) {
-        spdlog::error("비디오 처리 실패.");
-        return -1;
-    }
-
-    sleep(20);
-
-    // 비디오 스트리밍 서버 중지
+    // Stop video streaming and saving
     if (video_initializer->stop() != 0) {
-        spdlog::error("비디오 스트리밍 서버 중지 실패.");
+        spdlog::error("Failed to stop video streaming server.");
         return -1;
     }
-
-    event_listener_thread.join();
 
     return 0;
 }
