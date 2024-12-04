@@ -1,14 +1,15 @@
-#include "video/videoHandler.hpp"
+#include "video/VideoHandler.hpp"
 #include "spdlog/spdlog.h"
 #include <filesystem>
 #include <algorithm>
+using namespace video;
 
-video::VideoHandler::VideoHandler(): _video_config(){
+VideoHandler::VideoHandler(): _video_config(){
     files.clear();
     concat_file.clear();
 }
 
-int video::VideoHandler::get_video(std::string eventId, time_t timestamp){
+int VideoHandler::get_video(std::string eventId, time_t timestamp){
 
     std::string filename = eventId+".mp4";
     std::filesystem::path file_path(filename);
@@ -21,7 +22,7 @@ int video::VideoHandler::get_video(std::string eventId, time_t timestamp){
     return 0;
 
 }
-void video::VideoHandler::set_filename(std::string path){
+void VideoHandler::set_filename(std::string path){
 
     for(const auto& file: std::filesystem::directory_iterator(path)){
         if (file.is_regular_file() && file.path().extension() == ".mp4") {
@@ -40,37 +41,40 @@ void video::VideoHandler::set_filename(std::string path){
     
 }
 
-int video::VideoHandler::process_video(time_t timestamp, std::string eventId)
+int VideoHandler::process_video(time_t timestamp, std::string eventId)
 {
-    //duration을 초단위로 해야..?
-    int split_time = _video_config.split_time();
+    //duration을 처음부터 초단위로 넘겨받아야
+    //pipeline에서는 split_time을 받은대로 사용하지만 여기서는 초 단위가 필요
+    int split_time = static_cast<int>(_video_config.split_time()) / 1000000000;
 
     int duration = _video_config.duration();
 
     // 타임스탬프 범위
-    time_t start_time = timestamp - duration;
-    time_t end_time = timestamp + duration;
+    int start_time = timestamp - duration;
+    int end_time = timestamp + duration;
 
     // files에서 파일 이름 가져와서 저장
     for (const auto& file : files) {
         size_t pos = file.find('.');
-        time_t file_timestamp = std::stoi(file.substr(0, pos));
+        int file_timestamp = std::stoi(file.substr(0, pos));
 
-        if (!(file_timestamp+(split_time-1)) < start_time || file_timestamp > end_time) {
+        int end_file = file_timestamp+split_time-1;
+
+        if (file_timestamp <= end_time && end_file >=start_time) {
             concat_file.push_back(file);
         }
     }
 
     if (concat_file.empty()) {
         spdlog::warn("No video files to process for event {}", eventId);
-        return -2;
+        return -1;
     }
 
     // 파이프라인 구성
     std::stringstream pipeline;
     pipeline << "concat name=c ! queue ! m.video_0 qtmux name=m ! filesink location=/event/" << eventId << ".mp4";
 
-    for (size_t i = 0; i < files.size(); ++i){
+    for (size_t i = 0; i < concat_file.size(); ++i){
         pipeline<< " filesrc location=" << concat_file[i] << " ! qtdemux ! h264parse ! c.";
     }
 
@@ -83,16 +87,53 @@ int video::VideoHandler::process_video(time_t timestamp, std::string eventId)
     }
 
     // 파이프라인 실행
-    gst_element_set_state(pipeline_concat, GST_STATE_PLAYING);
+    GstStateChangeReturn ret = gst_element_set_state(pipeline_concat, GST_STATE_PLAYING);
+    if (ret == GST_STATE_CHANGE_FAILURE) {
+        spdlog::warn( "Failed to set pipeline to playing state");
+        gst_element_set_state(pipeline_concat, GST_STATE_NULL);
+        gst_object_unref(pipeline_concat);
+        return -1;
+    }
+
+    // 파이프라인 실행(버스 이벤트 처리)
+    // 버스가 없으면 파이프라인이 유지되지 않음
+    GstBus* bus = gst_element_get_bus(pipeline_concat);
+    GstMessage* msg = nullptr;
+    gboolean terminate = FALSE;
+
+    while (!terminate) {
+        msg = gst_bus_timed_pop_filtered(bus, GST_CLOCK_TIME_NONE, GST_MESSAGE_ERROR);
+        if (msg != NULL) {
+            GError* err;
+            gchar* debug_info;
+            switch (GST_MESSAGE_TYPE(msg)) {
+                case GST_MESSAGE_ERROR:
+                    gst_message_parse_error(msg, &err, &debug_info);
+                    spdlog::error("Error: {}",err->message);
+                    g_clear_error(&err);
+                    g_free(debug_info);
+                    terminate = TRUE;
+                    break;
+                case GST_MESSAGE_EOS:
+                    spdlog::info("End of stream reached");
+                    terminate = TRUE;
+                    break;
+                default:
+                    break;
+                }
+            gst_message_unref(msg);
+            }
+    }
+
+    gst_object_unref(bus);
 
     // 파이프라인 종료 후 리소스 정리
     gst_element_set_state(pipeline_concat, GST_STATE_NULL);
     gst_object_unref(pipeline_concat);
-
     return 0;
 
 }
-int video::VideoHandler::remove_video(int maintain_time, std::string path){
+int VideoHandler::remove_video(int maintain_time, std::string path){
     
     int now = time(nullptr);
     // 삭제하는 기준 정확하게 정해야
@@ -113,4 +154,6 @@ int video::VideoHandler::remove_video(int maintain_time, std::string path){
             ++it;
         }
     }
+
+    return 0;
 }
