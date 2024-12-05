@@ -34,6 +34,9 @@ namespace http
         /// @brief 이벤트를 전송 할 server_address
         std::string _server_address;
 
+        /// @brief 카메라를 식별하는 UUID
+        std::string _uuid;
+
         int _upload_client;
         std::mutex _upload_client_mutex;
 
@@ -53,6 +56,7 @@ namespace http
         std::mutex& upload_client_mutex();
         
         int& upload_client();
+        
         /// @brief master 카메라에서 이벤트가 발생 될 때, 이벤트가 들어오는 부분
         /// @param conn MHD_Connection
         /// @param data http 데이터

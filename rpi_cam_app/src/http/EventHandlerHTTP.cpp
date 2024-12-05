@@ -21,6 +21,7 @@ EventHandlerHTTP::EventHandlerHTTP()
     config::ProgramConfig* whole_config = config::ProgramConfig::get_instance();
     _server_address = whole_config->http_config()->remote_server();
     _upload_client = whole_config->http_config()->upload_user();
+
 }
 
 /// @brief "event_id를 가져오기 위한 함수"
@@ -31,13 +32,14 @@ EventHandlerHTTP::EventHandlerHTTP()
 /// @return 만약 iteratoring 중이라면 MHD_NO를 return
 static MHD_Result event_header_iter(void* cls, enum MHD_ValueKind kid, const char* key, const char* value)
 {
-    if(!strcmp(key, "event_id")){
+    if(!strcmp(key, "transactionId")){
         char* event_id = (char*)cls;
         memcpy(event_id, value, strlen(value)+1);
 
         //  순회 중단
         return MHD_Result::MHD_NO;
     }
+
     //  순회 지속
      return MHD_Result::MHD_YES;
 }
@@ -54,7 +56,7 @@ int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_
     MHD_get_connection_values(conn, MHD_ValueKind::MHD_HEADER_KIND, event_header_iter, event_id);
 
     // HTTP 헤더에 event_id가 존재하지 않음
-    if(event_id == nullptr){
+    if(!strcmp(event_id, "")){
         response_buffer.assign("event id is not exist");
         ret = send_response(conn, response_buffer, MHD_HTTP_BAD_REQUEST);
         con_cls = nullptr;
@@ -74,16 +76,18 @@ int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_
         //                             //
         /////////////////////////////////
 
-        // 이벤트 파일 존재
+        // 이벤트 영상 파일 있음
         if(access(event.c_str(), F_OK) != -1){
             
+            //  response로 있음을 알리고
             response_buffer.assign("success");
             ret = send_response(conn, response_buffer, MHD_HTTP_OK);
-
+            
+            //  별도 HTTP POST request로 비디오 전송
             CURL* curl;
             video_send(curl, event.c_str(), event_id);
         }
-        // 이벤트 파일 없음
+        // 이벤트 영상 파일 없음
         else{
             spdlog::error("event file {} is not exist", event);
 
@@ -117,12 +121,15 @@ static MHD_Result iterate_program_post(void* coninfo_cls,
 {
     struct connection_info* con_info = static_cast<struct connection_info*>(coninfo_cls);
 
+    //  파일명
     if(!strcmp(key, "name")) {
         con_info->file_name.assign(data, size);
     }
+    //  초당 프레임
     else if(!strcmp(key, "fps")) {
         con_info->fps.assign(data, size);
     }
+    //  파일 내용
     else if(!strcmp(key, "file")) {
         if(off==0){
             con_info->file_content.clear();
@@ -147,6 +154,7 @@ int EventHandlerHTTP::program_accept(MHD_Connection* conn, const char* data, siz
 
     struct connection_info* con_info;
 
+    //  첫 요청인 경우
     if(*con_cls == nullptr) {
         spdlog::info("/program accept");
         con_info = nullptr;
@@ -161,6 +169,7 @@ int EventHandlerHTTP::program_accept(MHD_Connection* conn, const char* data, siz
         _upload_client--;
         _upload_client_mutex.unlock();
 
+        //  multipart/form-data 파일 순회를 위한 processor function을 통해 받아올 객체 생성
         con_info = new connection_info();
         if(con_info == nullptr) {
             _upload_client_mutex.lock();
@@ -169,15 +178,16 @@ int EventHandlerHTTP::program_accept(MHD_Connection* conn, const char* data, siz
             spdlog::error("failed to create post infomation");
             return send_response(conn, "Internanl Server Error", MHD_HTTP_INTERNAL_SERVER_ERROR);
         }
-        con_info->postprocessor=nullptr;
-        con_info->file_content.clear();
-        con_info->file_name.assign("");
-        con_info->fps.assign("");
-        con_info->upload_done = false;
-
-
+        else {
+            con_info->postprocessor=nullptr;
+            con_info->file_content.clear();
+            con_info->file_name.assign("");
+            con_info->fps.assign("");
+            con_info->upload_done = false;
+        }
+        //  multipart/form-data 순회를 위한 processor function 생성
         con_info->postprocessor = MHD_create_post_processor(conn, POSTBUFFSIZE, iterate_program_post, (void *)con_info);
-        
+        //  생성 실패
         if(con_info->postprocessor == 0x0) {
             delete con_info;
             spdlog::error("failed to create post processor");
@@ -193,13 +203,16 @@ int EventHandlerHTTP::program_accept(MHD_Connection* conn, const char* data, siz
 
         return MHD_Result::MHD_YES;
     }
+    //  multipart/form-data 요청을 받는 중인 경우
     else {
         con_info = static_cast<struct connection_info*>(*con_cls);
+        //  data를 가져오는 processor function 수행
         if(*size != 0) {
             MHD_post_process(con_info->postprocessor, data, *size);
             *size = 0;
             return MHD_Result::MHD_YES;
         }
+        // multipart/form-data 요청이 끝난 경우
         else {
             con_info->upload_done = true;
 
@@ -215,12 +228,15 @@ int EventHandlerHTTP::program_accept(MHD_Connection* conn, const char* data, siz
                 //  만약 시스템 설정 fps값을 넘어서면 error 호출을 추가 할거면 추가할 것
 
             }
+            //  fps 값이 올바르지 않음
             catch(std::invalid_argument& ex){
                 spdlog::error("Invalid fps value");
 
                 send_response(conn, "Invalid fps value", MHD_HTTP_BAD_REQUEST);
                 return MHD_Result::MHD_YES;
             }
+
+            //  모든 값이 존재하지 않음
             if(con_info->file_name == "" || con_info->file_content.empty() || con_info->fps == ""){
                 spdlog::info("Some element is empty");
 
@@ -228,6 +244,7 @@ int EventHandlerHTTP::program_accept(MHD_Connection* conn, const char* data, siz
                 return MHD_Result::MHD_YES;
             }
             
+            //  저장 성공
             if(con_info->upload_done) {
                 send_response(conn, "program file saved", MHD_HTTP_OK);
             }
@@ -253,11 +270,11 @@ static size_t event_send_callback(void* contents, size_t size, size_t nmemb, voi
     return real_size;
 }
 
+
 int EventHandlerHTTP::event_send(CURL* curl, const char* event_name, time_t time)
 {
     CURLcode res;
 
-    std::tm* tm;
 
     std::stringstream payload_stream;
     std::stringstream time_stream;
@@ -267,29 +284,50 @@ int EventHandlerHTTP::event_send(CURL* curl, const char* event_name, time_t time
     std::string request_url = _server_address + "/event";
     std::string request;
 
+    //  unix 시간을 현지 시각으로 변경
+    std::tm* tm;
     tm = std::localtime(&time);
+    time_stream << std::put_time(tm, "%Y-%m-%d %H:%M:%S");
 
-    time_stream << std::put_time(tm, "%Y-%m-%dT%H:%M:%S");
-
-    payload_tree.put("description ", "hello world");
-    payload_tree.put("time", time);
+    // json 객체 생성
+    payload_tree.put("description", _uuid);
+    payload_tree.put("unixtime", time);
     payload_tree.put("localtime", time_stream.str());
 
-    // payload 설정
+    // json 직렬화
     boost::property_tree::write_json(payload_stream, payload_tree);
     request = payload_stream.str();
 
     spdlog::debug("request url : {}", request_url);
     spdlog::debug("request payload : {}", request);
 
-    return send_request(curl, request_url, request);
+    curl = curl_easy_init();
+    if(curl) {
+        // POST 설정
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
+
+        // Content-type 및 https 설정
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+        curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
+        // 헤더 설정
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+        return send_request(curl, request_url, request);
+    }
+    else {
+        spdlog::error("Error : Failed to Create CURL Object");
+
+        return 1;
+    }
 }
 
 int EventHandlerHTTP::video_send(CURL* curl, const char* path, const char* event_id)
 {
-   CURLcode res;
+    CURLcode res;
 
-    std::string request_url = _server_address + "/video";
+    std::string request_url = _server_address + "/file";
 
     curl_mime* form = nullptr;
     curl_mimepart* field = nullptr;
@@ -298,33 +336,55 @@ int EventHandlerHTTP::video_send(CURL* curl, const char* path, const char* event
     
     curl = curl_easy_init();
     if(curl) {
+        // POST 설정
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
+
+        // Content-type 및 https 설정
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+        curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
+        // 헤더 설정
+        struct curl_slist *headers = NULL;
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+        // body 생성
+
         //  create form
         form = curl_mime_init(curl);
-        
-        // event_id part
+
+        // transactionId part
         field = curl_mime_addpart(form);
-        curl_mime_name(field, "event_id");
+        curl_mime_name(field, "transactionId");
         curl_mime_data(field, event_id, CURL_ZERO_TERMINATED);
+        
+        // description part
+        field = curl_mime_addpart(form);
+        curl_mime_name(field, "description");
+        curl_mime_data(field, _uuid.c_str(), CURL_ZERO_TERMINATED);
 
         // video data part
         field = curl_mime_addpart(form);
-        curl_mime_name(field, "data");
+        curl_mime_name(field, "testfile");
         curl_mime_filedata(field, path);
-        curl_mime_type(field, "video/mp4");
+        //curl_mime_type(field, "video/mp4");  
 
-        curl_easy_setopt(curl, CURLOPT_URL, request_url);
+
+        //  mutlipart/form-data를 request body에 직렬화
         curl_easy_setopt(curl, CURLOPT_MIMEPOST, form);
+
+        curl_easy_setopt(curl, CURLOPT_URL, request_url.c_str());
 
         res = curl_easy_perform(curl);
 
         if(res != CURLE_OK) {
+            spdlog::error("Curl code {}", (int)res);
             spdlog::error("event {} video send failed", event_id);
-
+            
             curl_easy_cleanup(curl);
             curl_mime_free(form);
             return 1;
         }
         else{
+            spdlog::info("event {} succcess", event_id);
             curl_easy_cleanup(curl);
             curl_mime_free(form);
 
@@ -336,34 +396,53 @@ int EventHandlerHTTP::video_send(CURL* curl, const char* path, const char* event
 
 int EventHandlerHTTP::camerainfo_send(CURL* curl, const std::string& uuid)
 {    
-   CURLcode res;
+    CURLcode res;
 
     std::stringstream payload_stream;
 
     boost::property_tree::ptree payload_tree;
     boost::property_tree::ptree event_group_tree;
 
-    std::string request_url = _server_address + "/info";
+    std::string request_url = _server_address + "/setup";
     std::string request;
     char* response;
 
-    payload_tree.put("cam_id", uuid);
-
+    // json 객체 생성
+    payload_tree.put("description", uuid);
+    // json 직렬화
     boost::property_tree::write_json(payload_stream, payload_tree);
     request = payload_stream.str();
     
     spdlog::debug("request url {}", request_url);
     spdlog::debug("request payload: {} ", request);
     
-    return send_request(curl, request_url, request);
+    curl = curl_easy_init();
+    if(curl) {
+        // POST로 설정
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
+
+        // Content-type 및 https 설정
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+        return send_request(curl, request_url, request);
+    }
+    else{
+        spdlog::error("Error : Faild to Create CURL Object");
+
+        return 1;
+    }
+    
 }
 
 int EventHandlerHTTP::send_request(CURL* curl, const std::string& url, const std::string& payload)
 {
     CURLcode res;
     char response[1024];
-    curl = curl_easy_init();
     if(curl) {
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+        curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
         // 요청 url
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
 

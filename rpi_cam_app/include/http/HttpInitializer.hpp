@@ -25,7 +25,7 @@ namespace http
     class HttpInitializer : public utils::Initialzier, public utils::Singleton<HttpInitializer>
     {
     private:
-
+        std::string _uuid;
         const config::HttpConfig* _config;
         struct MHD_Daemon* _daemon;
 
