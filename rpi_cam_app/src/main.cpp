@@ -9,13 +9,8 @@ int main(int argc, char const *argv[])
 {
     config::ProgramConfig* config = config::ProgramConfig::get_instance();
 
-    // config::EventConfig ev = config->event_config();
-    // spdlog::info("event names ");
-    // for (auto item : ev.event_name()){
-    //     spdlog::info("{} {} fps", item, ev.event_fps(item));
-    // }
 
-
+    //spdlog::set_level(spdlog::level::level_enum::debug);
     const config::HttpConfig* http = config->http_config();
     spdlog::info("http");
     spdlog::info("crt file path : {} ", http->crt_file());
@@ -41,37 +36,48 @@ int main(int argc, char const *argv[])
     //--------------------video-----------------------
 
     video::VideoInitializer* video_initializer = video::VideoInitializer::get_instance();
-    video::VideoHandler* video_handler = video::VideoHandler::get_instance();
-    
-    video_initializer->init();
-    if (video_initializer->start() != 0) {
-        spdlog::error("Failed to start video streaming server.");
-        return -1;
-    }
-    
-    // thread
-    // 이벤트가 발생하는지 기다리는 함수가 
-    // 이벤트 발생하면 video_initializer->set_event();
-    // video_initializer->event();
+    video::VideoHandler* video_handler = video::VideoHandler::get_instance(); 
 
-    /*std::thread event([&]{
-        spdlog::info("Listening event.....");
-        while(true){
-            video_initializer->event();
+    video_initializer->init();
+
+    std::thread streaming_thread([&](){
+        if (video_initializer->start() != 0) {
+            spdlog::error("Failed to start video streaming server.");
+            return -1;
         }
     });
 
-    video_initializer->set_event(); // 임의 이벤트 트리거
+    std::atomic<bool> running(true);
+    std::string path1 = "";  // videoStreamerGST 파이프라인으로 영상 분할 저장된 위치 -> 현재는 파일 실행 위치로 되어 있음
 
-    int maintain_time = 10; //임시 설정. 10분
-    std::string path = "/home/pi/send"; //임시 설정. 완료된 영상을 서버에게 잘 보냈을 경우 파일이 있는 위치
-    std::thread remove_video([&]{
-        video_handler->remove_video(maintain_time, path);
+    std::thread video_event_thread([&](){
+        // if 서버가 이벤트를 보낸다면
+
+        // 서버로부터 넘겨받은 timestamp, eventId값;
+        int timestamp;
+        std::string eventId;
+
+        video_initializer->set_event(path1, eventId, timestamp);
     });
 
-    event.join();
-    remove_video.join();*/
-    //
+    //일정 시간 지나면 video 삭제 thread
+    /*
+    int maintain_time = 10; //임시 설정. 10분
+    std::string path2 = "/home/pi/send_server"; //임시 설정. 완료된 영상을 서버에게 잘 보냈을 경우 파일이 있는 위치
+
+    std::thread remove_video_thread([&](){
+        video_handler->remove_video(maintain_time, path1);
+        video_handler->remove_video(maintain_time, path2);
+    });*/
+
+    // 이벤트 처리
+    while(running){
+        video_initializer->event();
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    streaming_thread.join();
+    video_event_thread.join();
 
 
     // Stop video streaming and saving
@@ -82,3 +88,7 @@ int main(int argc, char const *argv[])
 
     return 0;
 }
+
+
+
+
