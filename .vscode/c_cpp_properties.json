@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/opt/poky/4.0.23/sysroots/cortexa76-poky-linux/usr/include/gstreamer-1.0",
+                "/opt/poky/4.0.23/sysroots/cortexa76-poky-linux/usr/include/glib-2.0",
+                "/opt/poky/4.0.23/sysroots/cortexa76-poky-linux/usr/lib/glib-2.0/include"
+            ],
+            "defines": [
+                "__USE_POSIX",
+                "_GNU_SOURCE"
+            ],
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        },
+
+        {
+            "name": "Kernel",
+            "cStandard": "c11",
+            "intelliSenseMode": "gcc-x64",
+            "compileCommands": "${workspaceFolder}/compile_commands.json"
+        }
+    ],
+    "version": 4
+}

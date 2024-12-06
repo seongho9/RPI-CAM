@@ -36,6 +36,9 @@ int VideoConfig::read_config()
 
         _split_time = _props.get<int>("split-time");
         _duration = _props.get<int>("duration");
+
+        _vid_path = _props.get<std::string>("save_path");
+        _maintain_sec = _props.get<int>("maintain");
     }
     catch(boost::property_tree::ptree_bad_path& ex) {
         spdlog::error("path error : {}", ex.what());
@@ -50,6 +53,8 @@ int VideoConfig::read_config()
     spdlog::info("===Video Save Information===");
     spdlog::info("Saving Loop duration : {}", _split_time);
     spdlog::info("Event send length : {}", _duration);
+    spdlog::info("Path : {}", _vid_path);
+    spdlog::info("maitain seconds : {}", _maintain_sec);
 
     spdlog::info("Video Config End");
     return 0;
@@ -83,4 +88,14 @@ const int VideoConfig::split_time() const
 const int VideoConfig::duration() const
 {
     return _duration * static_cast<int>(pow(10, 9));
+}
+
+const std::string& VideoConfig::save_path() const
+{
+    return _vid_path;
+}
+
+const int VideoConfig::maintain() const
+{
+    return _maintain_sec;
 }

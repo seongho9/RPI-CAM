@@ -8,8 +8,8 @@ set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR aarch64)
 
 # target environment
-set(CMAKE_SYSROOT "/opt/poky/4.0.23/sysroots/cortexa76-poky-linux")
-set(CMAKE_FIND_ROOT_PATH "/opt/poky/4.0.23/sysroots/cortexa76-poky-linux")
+set(CMAKE_SYSROOT "/opt/poky/4.1.23/sysroots/cortexa76-poky-linux")
+set(CMAKE_FIND_ROOT_PATH "/opt/poky/4.1.23/sysroots/cortexa76-poky-linux")
 
 # search for program in the build host directories
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
@@ -19,7 +19,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
 # tool-chain
-set(BUILD_PATH "/opt/poky/4.0.23/sysroots/x86_64-pokysdk-linux")
+set(BUILD_PATH "/opt/poky/4.1.23/sysroots/x86_64-pokysdk-linux")
 set(CMAKE_TOOLCHAIN_FILE "${BUILD_PATH}/usr/bin")
 set(CMAKE_C_COMPILER "${BUILD_PATH}/usr/bin/aarch64-poky-linux/aarch64-poky-linux-gcc")
 set(CMAKE_CXX_COMPILER "${BUILD_PATH}/usr/bin/aarch64-poky-linux/aarch64-poky-linux-g++")
@@ -72,6 +72,7 @@ message(STATUS "GLIB_INC: ${GLIB_INC_2}")
 # project source setting
 
 add_subdirectory(src)
+
 add_subdirectory(test)
 
 include_directories("${CMAKE_SOURCE_DIR}/include")
