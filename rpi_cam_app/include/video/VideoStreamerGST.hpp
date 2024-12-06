@@ -15,17 +15,17 @@ namespace video{
         GstRTSPMediaFactory *mfactory;   // rtsp 서버에서 스트리밍 할 미디어 파이프라인을 생성하는 객체
         GMainLoop *main_loop;
         std::string pipeline;
-        config::VideoConfig _video_config;
+        const config::VideoConfig* _video_config;
         
     public:
         VideoStreamerGST();
         ~VideoStreamerGST();
-        std::string createPipeline(const config::VideoConfig& config);
+        std::string createPipeline(const config::VideoConfig* config);
         void make_server();
         int start_server() override;
         int stop_server() override;
         static gchar* format_location_callback(GstElement* splitmux, guint fragment_id, gpointer user_data);
     };  
-}
+};
 
-#endif VIDEO_STREAMERGST_HPP
+#endif 

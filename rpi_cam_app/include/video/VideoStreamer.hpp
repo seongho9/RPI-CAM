@@ -5,10 +5,10 @@ namespace video{
     class VideoStreamer{
         
     public:
-        VideoStreamer();
-        virtual int start_server();
-        virtual int stop_server();
+        //VideoStreamer()=delete;
+        virtual int start_server()=0;
+        virtual int stop_server()=0;
     };
-}
+};
 
-#endif VIDEO_STREAMER_HPP
+#endif 
