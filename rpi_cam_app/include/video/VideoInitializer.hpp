@@ -19,14 +19,17 @@ namespace video{
         VideoInitializer();
         std::mutex event_mutex;
         bool video_event_triggered = false;
+        int event_timestamp;
+        std::string event_Id;
+        std::string save_path;
          
     public:
         void init();
         void event();
         int start();
         int stop();    
-        void set_event();  //임시 이벤트 기다리는 함수
+        void set_event(std::string path, std::string eventId, int timestamp);  //임시 이벤트 기다리는 함수
     };
-}
+};
  
-#endif VIDEO_INITIALIZER_HPP
+#endif 
