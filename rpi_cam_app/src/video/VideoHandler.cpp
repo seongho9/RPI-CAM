@@ -9,6 +9,7 @@ VideoHandler::VideoHandler(): _video_config(){
     concat_file.clear();
 }
 
+// 서버에 보낼 비디오가 가져올 path에 있는지 확인
 int VideoHandler::get_video(std::string eventId, time_t timestamp){
 
     std::string filename = eventId+".mp4";
@@ -22,6 +23,8 @@ int VideoHandler::get_video(std::string eventId, time_t timestamp){
     return 0;
 
 }
+
+// 저장되는 경로에 있는 파일 가져오는 함수
 void VideoHandler::set_filename(std::string path){
 
     for(const auto& file: std::filesystem::directory_iterator(path)){
@@ -37,17 +40,19 @@ void VideoHandler::set_filename(std::string path){
     sort(files.begin(), files.end(), [](const std::string& a, const std::string& b) {
         return stoi(a) < stoi(b);  
     });
-
     
 }
 
 int VideoHandler::process_video(time_t timestamp, std::string eventId)
-{
-    //duration을 처음부터 초단위로 넘겨받아야
-    //pipeline에서는 split_time을 받은대로 사용하지만 여기서는 초 단위가 필요
-    int split_time = static_cast<int>(_video_config.split_time()) / 1000000000;
+{    
+    // 임시 
+    int split = 10;
+    int duration = 10;
 
-    int duration = _video_config.duration();
+    //duration을 처음부터 초단위로 넘겨받아야.
+    //pipeline에서는 split_time을 받은대로 사용하지만 여기서는 초 단위가 필요. 
+    //int split_time = static_cast<int>(_video_config.split_time()) / 1000000000;
+    //int duration = _video_config.duration();
 
     // 타임스탬프 범위
     int start_time = timestamp - duration;
@@ -58,7 +63,7 @@ int VideoHandler::process_video(time_t timestamp, std::string eventId)
         size_t pos = file.find('.');
         int file_timestamp = std::stoi(file.substr(0, pos));
 
-        int end_file = file_timestamp+split_time-1;
+        int end_file = file_timestamp+split-1;
 
         if (file_timestamp <= end_time && end_file >=start_time) {
             concat_file.push_back(file);
@@ -72,7 +77,7 @@ int VideoHandler::process_video(time_t timestamp, std::string eventId)
 
     // 파이프라인 구성
     std::stringstream pipeline;
-    pipeline << "concat name=c ! queue ! m.video_0 qtmux name=m ! filesink location=/event/" << eventId << ".mp4";
+    pipeline << "concat name=c ! queue ! m.video_0 qtmux name=m ! filesink location=" << eventId << ".mp4";
 
     for (size_t i = 0; i < concat_file.size(); ++i){
         pipeline<< " filesrc location=" << concat_file[i] << " ! qtdemux ! h264parse ! c.";
@@ -89,7 +94,7 @@ int VideoHandler::process_video(time_t timestamp, std::string eventId)
     // 파이프라인 실행
     GstStateChangeReturn ret = gst_element_set_state(pipeline_concat, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE) {
-        spdlog::warn( "Failed to set pipeline to playing state");
+        spdlog::error( "Failed to set pipeline to concat video");
         gst_element_set_state(pipeline_concat, GST_STATE_NULL);
         gst_object_unref(pipeline_concat);
         return -1;
@@ -135,10 +140,10 @@ int VideoHandler::process_video(time_t timestamp, std::string eventId)
 }
 int VideoHandler::remove_video(int maintain_time, std::string path){
     
-    int now = time(nullptr);
-    // 삭제하는 기준 정확하게 정해야
-    // duration을 받지 않고 유지 시간을 config 파일에서 수정 할 수 있게 해야
-    // 합쳐진 영상을 서버로 보내면 /event/done으로 옮겨서 해당 파일에 있는 영상 삭제
+    int now = time(0);
+
+    // 삭제하는 기준 정확하게 정해야 maintain_time = 저장된 파일 유지 시간
+    // maintain_time도 config.json에서 받아야
 
     for (auto it = files.begin(); it!= files.end();) {
         size_t pos = it->find('.');
