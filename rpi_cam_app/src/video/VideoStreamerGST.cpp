@@ -1,4 +1,5 @@
 #include "video/VideoStreamerGST.hpp"
+#include "config/ProgramConfig.hpp"
 #include <iostream>
 #include <sys/types.h>
 #include <ctime>
@@ -9,7 +10,7 @@ using namespace video;
 // format-location-full 콜백 함수
 // 새로운 파일이 생성될 때 호출
 // 파일 이름 timestamp로 
-gchar* format_location_callback(GstElement* splitmux, guint fragment_id, gpointer user_data) {
+gchar* VideoStreamerGST::format_location_callback(GstElement* splitmux, guint fragment_id, gpointer user_data) {
   
     std::string timestamp = std::to_string(time(nullptr));
     //std::string filename = "video_" + timestamp + ".mp4";
@@ -25,6 +26,7 @@ VideoStreamerGST::VideoStreamerGST() : _video_config(){
     mountPoint = nullptr;
     mfactory = nullptr;
     main_loop = nullptr;
+    _video_config = config::ProgramConfig::get_instance()->video_config();
 }
 
 VideoStreamerGST::~VideoStreamerGST() {
@@ -58,31 +60,33 @@ void VideoStreamerGST::make_server(){
 
 }
 
-std::string VideoStreamerGST::createPipeline(const config::VideoConfig& config) {
+std::string VideoStreamerGST::createPipeline(const config::VideoConfig* config) {
+
+    spdlog::debug("{}, {}, {}, {}, {}", config->width(), config->height(),config->frame_rate(), config->format(), config->split_time());
     
     //pipeline 구성 
     //config 파일에서 직접 가지고 와 사용
     std::stringstream pipeline_stream;
     pipeline_stream << "( libcamerasrc ! "
-                    << "video/x-raw,width=" << config.width() 
-                    << ",height=" << config.height() 
-                    << ",framerate=" << config.frame_rate()
-                    << ",format=" << config.format()   
+                    << "video/x-raw,width=" << config->width() 
+                    << ",height=" << config->height() 
+                    << ",framerate=" << config->frame_rate()
+                    << ",format=" << config->format()   
                     << " ! tee name=t ! "
                     << "queue ! videoconvert ! x264enc speed-preset=ultrafast tune=fastdecode ! "
                     << "video/x-h264,profile=high ! rtph264pay config-interval=1 name=pay0 pt=96 "
                     << "t. ! queue ! videoconvert ! x264enc speed-preset=ultrafast tune=fastdecode ! "
-                    << "splitmuxsink name=muxsink max-size-time="<< config.split_time()
+                    << "splitmuxsink name=muxsink max-size-time="<< config->split_time()
                     << " )";
 
     std::string pipeline_str = pipeline_stream.str();
+    //spdlog::debug("pipeline {}",pipeline_str);
     return pipeline_str;
 }
 
 int VideoStreamerGST::start_server(){
     
     make_server();
-    
     // 서버 활성화
     gst_rtsp_media_factory_set_launch(mfactory, pipeline.c_str());
 
@@ -105,6 +109,7 @@ int VideoStreamerGST::start_server(){
             g_object_unref(muxsink);
         }
     }), NULL);
+    //spdlog::debug("main loop");
 
     // 메인 루프 실행
     g_main_loop_run(main_loop);
