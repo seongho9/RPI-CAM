@@ -11,10 +11,11 @@ using namespace video;
 // 새로운 파일이 생성될 때 호출
 // 파일 이름 timestamp로 
 gchar* VideoStreamerGST::format_location_callback(GstElement* splitmux, guint fragment_id, gpointer user_data) {
-  
-    std::string timestamp = std::to_string(time(nullptr));
+    
+    time_t t = time(NULL);
+    std::string timestamp = std::to_string(t);
     //std::string filename = "video_" + timestamp + ".mp4";
-    std::string filename = timestamp+".mp4";
+    std::string filename =  "video/" + timestamp+".mp4";
     spdlog::info("Saving new file: {}", filename);
 
     // 파일 이름을 동적으로 반환
@@ -67,7 +68,8 @@ std::string VideoStreamerGST::createPipeline(const config::VideoConfig* config) 
     //pipeline 구성 
     //config 파일에서 직접 가지고 와 사용
     std::stringstream pipeline_stream;
-    pipeline_stream << "( libcamerasrc ! "
+    //libcamerasrc
+    pipeline_stream << "( v4l2src device=" << config::ProgramConfig::get_instance()->camera_config()->device_path() << " ! "
                     << "video/x-raw,width=" << config->width() 
                     << ",height=" << config->height() 
                     << ",framerate=" << config->frame_rate()
