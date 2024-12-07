@@ -19,13 +19,6 @@ void VideoInitializer::init(){
 int VideoInitializer::start(){
     
     spdlog::info("Starting video streaming...");
-    
-
-    if(_streamer->start_server()!= 0){
-        spdlog::error("Failed to start GstStreamer");
-        return -1;
-    }
-    spdlog::info("Video streaming started successfully");
 
     _remove_enable = true;
 
@@ -38,8 +31,14 @@ int VideoInitializer::start(){
             std::this_thread::sleep_for(std::chrono::seconds(maintain_time));
         }
     });
-
+    _remove_thread->detach();
     spdlog::info("Remove Thread started successfully");
+
+    if(_streamer->start_server()!= 0){
+        spdlog::error("Failed to start GstStreamer");
+        return -1;
+    }
+    spdlog::info("Video streaming started successfully");
 
     return 0;
 }
