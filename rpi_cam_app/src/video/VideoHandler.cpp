@@ -20,15 +20,19 @@ VideoHandler::VideoHandler(): _video_config(){
 }
 
 // 서버에 보낼 비디오가 가져올 path에 있는지 확인
-int VideoHandler::get_video(std::string eventId, time_t timestamp){
+int VideoHandler::get_video(std::string& path, std::string eventId, time_t timestamp){
 
-    std::string filename = eventId+".mp4";
-    std::filesystem::path file_path(filename);
+    std::stringstream filename_stream;
+    filename_stream << _video_config->save_path() << "/event/" << eventId << ".mp4";
+
+    std::filesystem::path file_path(filename_stream.str());
 
     if (!file_path.has_filename()){
         spdlog::warn("{} file doesn't exist..");
         return -1;
     }
+    
+    path.assign(filename_stream.str());
     
     return 0;
 
@@ -59,7 +63,7 @@ int VideoHandler::process_video(time_t timestamp, std::string eventId)
 
     //  gstreamer와는 달리 초단위로 조정
     int split_time = static_cast<int>(_video_config->split_time()) / 1000000000;
-    const int duration = _video_config->duration();
+    int duration =   static_cast<int>(_video_config->duration());
 
     //  현 디렉터리에 존재하는 파일명
     std::vector<std::string> path_files;
@@ -102,9 +106,11 @@ int VideoHandler::process_video(time_t timestamp, std::string eventId)
              << _video_config->save_path() << "/event/" << eventId << ".mp4";
 
     for (size_t i = 0; i < concat_file.size(); ++i){
-        pipeline<< " filesrc location=" << concat_file[i] << " ! qtdemux ! h264parse ! c.";
+        pipeline<< " filesrc location=" << _video_config->save_path() << "/" << concat_file[i] << " ! qtdemux ! h264parse ! c.";
     }
+    
 
+    spdlog::debug("pipeline info {}", pipeline.str());
     // 파이프라인 생성
     GstElement *pipeline_concat = gst_parse_launch(pipeline.str().c_str(), NULL);
     if (!pipeline_concat) {
@@ -128,13 +134,17 @@ int VideoHandler::process_video(time_t timestamp, std::string eventId)
     GstBus* bus = gst_element_get_bus(pipeline_concat);
     GstMessage* msg = nullptr;
     gboolean terminate = FALSE;
-
+    spdlog::debug("before bus loop");
     while (!terminate) {
-        msg = gst_bus_timed_pop_filtered(bus, GST_CLOCK_TIME_NONE, GST_MESSAGE_ERROR);
+        spdlog::debug("after bus loop");
+        msg = gst_bus_timed_pop_filtered(bus, 1000 * GST_MSECOND, 
+            static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
+        
         if (msg != NULL) {
             GError* err;
             gchar* debug_info;
-            switch (GST_MESSAGE_TYPE(msg)) {
+            switch (GST_MESSAGE_TYPE(msg)) 
+            {
                 case GST_MESSAGE_ERROR:
                     gst_message_parse_error(msg, &err, &debug_info);
                     spdlog::error("Error: {}",err->message);
@@ -148,10 +158,17 @@ int VideoHandler::process_video(time_t timestamp, std::string eventId)
                     break;
                 default:
                     break;
-                }
-            gst_message_unref(msg);
             }
+            spdlog::debug("before unref");
+            gst_message_unref(msg);
+            spdlog::debug("after unref");
+            break;
+        }
+        else{
+            spdlog::debug("msg NULl");
+        }
     }
+    spdlog::debug("loop out");
 
     gst_object_unref(bus);
 
@@ -160,17 +177,15 @@ int VideoHandler::process_video(time_t timestamp, std::string eventId)
     gst_object_unref(pipeline_concat);
 
     _file_lock.unlock();
+    spdlog::debug("return process vid");
     return 0;
 
 }
 int VideoHandler::remove_video(int maintain_time, std::string path)
 {
-    
+    spdlog::info("remove video called");
     _file_lock.lock();
-
     int now = time(0);
-
-
     //  현 디렉터리에 존재하는 파일명
     std::vector<std::string> path_files;
     path_files.clear();
@@ -183,7 +198,7 @@ int VideoHandler::remove_video(int maintain_time, std::string path)
         time_t file_timestamp = static_cast<time_t>(std::stoi(it->substr(0, pos)));
       
     
-        if (file_timestamp < (now-(maintain_time*60))) {  
+        if (file_timestamp < (now-(maintain_time))) {  
             std::filesystem::remove(path+"/"+*it);
             spdlog::info("remove {} file successfully", *it);
             it = path_files.erase(it);

@@ -35,10 +35,11 @@ namespace video{
     public:
 
         /// @brief 원하는 비디오가 있는지 학인
+        /// @param path 반환할 비디오의 path
         /// @param eventId 이벤트 id
         /// @param timestamp 이벤트 발생 시각
         /// @return 0: 성공, others: 실패
-        int get_video(std::string eventId, time_t timestamp);
+        int get_video(std::string& path, std::string eventId, time_t timestamp);
         /// @brief 비디오 합치는 파이프라인
         /// @param timestamp 이벤트 발생 시각
         /// @param eventId 이벤트 id
