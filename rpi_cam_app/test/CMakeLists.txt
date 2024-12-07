@@ -10,12 +10,6 @@ set(CV_LIBS
     -lopencv_photo -lopencv_imgproc -lopencv_core")
 
 # add source code
-add_executable(
-    test_video_queue
-    camera_device/VideoQueueTest.cpp
-    ../src/camera_device/CameraInitializer.cpp ../src/camera_device/VideoQueue.cpp
-    ../src/config/CameraConfig.cpp ../src/config/HttpConfig.cpp ../src/config/ProgramConfig.cpp ../src/config/VideoConfig.cpp
-)
 
 add_executable(
     test_camera_init
@@ -23,16 +17,6 @@ add_executable(
     ../src/camera_device/CameraInitializer.cpp ../src/camera_device/VideoQueue.cpp
     ../src/config/CameraConfig.cpp ../src/config/HttpConfig.cpp ../src/config/ProgramConfig.cpp ../src/config/VideoConfig.cpp    
 )
-
-target_include_directories(
-    test_video_queue
-    PRIVATE
-    ${DEFAULT_LIB_INC}
-    ${GSTREAMER_INC}
-    "${CMAKE_SOURCE_DIR}/include"
-
-)
-
 target_include_directories(
     test_camera_init
     PRIVATE
@@ -42,6 +26,39 @@ target_include_directories(
     "${CMAKE_SOURCE_DIR}/include"
 
 )
+target_link_libraries(
+    test_camera_init
+    gstreamer-1.0 gobject-2.0 glib-2.0
+    ssl crypto microhttpd
+    boost_json boost_unit_test_framework 
+    ${CV_LIBS}
+    test
+    gstreamer-1.0 gobject-2.0 glib-2.0 gstrtspserver-1.0
+    # ssl crypto microhttpd
+    boost_json
+)
+
+target_include_directories(
+    test
+    PRIVATE
+    "${DEFAULT_LIB_INC}/glib-2.0"
+    "${DEFAULT_LIB_INC}/glib-2.0/glib"
+    "${CMAKE_SOURCE_DIR}/include"
+    ${DEFAULT_LIB_INC}
+    ${GSTREAMER_INC}
+    "${CMAKE_SOURCE_DIR}/include"
+
+    ${GLIB_INC_1}
+    ${GLIB_INC_2}
+)
+
+
+add_executable(
+    test_video_queue
+    camera_device/VideoQueueTest.cpp
+    ../src/camera_device/CameraInitializer.cpp ../src/camera_device/VideoQueue.cpp
+    ../src/config/CameraConfig.cpp ../src/config/HttpConfig.cpp ../src/config/ProgramConfig.cpp ../src/config/VideoConfig.cpp
+)
 # add link libraries
 target_link_libraries(
     test_video_queue
@@ -50,10 +67,33 @@ target_link_libraries(
     boost_json boost_unit_test_framework
     ${CV_LIBS}
 )
+
+
+# add source code
+add_executable(
+    test_stream
+    test_stream.cpp 
+    ../src/config/HttpConfig.cpp ../src/config/VideoConfig.cpp ../src/config/ProgramConfig.cpp ../src/config/CameraConfig.cpp
+    ../src/video/VideoInitializer.cpp ../src/video/VideoHandler.cpp ../src/video/VideoStreamerGST.cpp
+
+)
+
+target_include_directories(
+    test_stream
+    PRIVATE
+    "${DEFAULT_LIB_INC}/glib-2.0"
+    "${DEFAULT_LIB_INC}/glib-2.0/glib"
+    "${CMAKE_SOURCE_DIR}/include"
+    ${DEFAULT_LIB_INC}
+    ${GSTREAMER_INC}
+    ${GLIB_INC_1}
+    ${GLIB_INC_2}
+)
+
+# add link libraries
 target_link_libraries(
-    test_camera_init
-    gstreamer-1.0 gobject-2.0 glib-2.0
-    ssl crypto microhttpd
-    boost_json boost_unit_test_framework 
-    ${CV_LIBS}
+    test_stream
+    gstreamer-1.0 gobject-2.0 glib-2.0 gstrtspserver-1.0
+    # ssl crypto microhttpd
+    boost_json
 )

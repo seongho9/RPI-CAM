@@ -9,6 +9,7 @@
     "events":[
         {
             "event_name":"event_1", 
+            "event_gorup":"event",
             "fps":"3"
         }
     ],
@@ -25,6 +26,12 @@
         "width":"640",
         "height":"480",
         "format": "V4L2_PIX_FMT_RGB24"
+    },
+    "device":
+    {
+        "remote_server" : "https://fbe9053f-ad9f-4e44-bf2a-e5b1886eb687.mock.pstmn.io",
+        "event_group" : ["event1"],
+        "mode" : "master"
     }
 }
 

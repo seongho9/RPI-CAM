@@ -46,6 +46,7 @@ const CameraConfig* ProgramConfig::camera_config()
 
     return _camera_config;
 }
+
 int ProgramConfig::read_config(Config* config)
 {
     return config->set_file("config.json");
