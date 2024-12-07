@@ -87,7 +87,7 @@ const int VideoConfig::split_time() const
 
 const int VideoConfig::duration() const
 {
-    return _duration * static_cast<int>(pow(10, 9));
+    return _duration;
 }
 
 const std::string& VideoConfig::save_path() const
