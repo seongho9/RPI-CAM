@@ -22,6 +22,12 @@ EventHandlerHTTP::EventHandlerHTTP()
     _server_address = whole_config->http_config()->remote_server();
     _upload_client = whole_config->http_config()->upload_user();
 
+    
+        std::ifstream file("system/uuid");
+        std::getline(file, _uuid);
+
+        file.close();
+
 }
 
 /// @brief "event_id를 가져오기 위한 함수"
@@ -32,11 +38,16 @@ EventHandlerHTTP::EventHandlerHTTP()
 /// @return 만약 iteratoring 중이라면 MHD_NO를 return
 static MHD_Result event_header_iter(void* cls, enum MHD_ValueKind kid, const char* key, const char* value)
 {
+    struct event_info* info = static_cast<struct event_info*>(cls);
+    struct tm tm = {0};
     if(!strcmp(key, "transactionId")){
-        char* event_id = (char*)cls;
-        memcpy(event_id, value, strlen(value)+1);
+        memcpy(info->id, value, strlen(value)+1);
+    }
+    else if(!strcmp(key, "event_time")){
+        info->time_stamp = static_cast<time_t>(std::strtoll(value, nullptr, 10));
+    }
 
-        //  순회 중단
+    if(strlen(info->id)!=0 && info->time_stamp != 0){
         return MHD_Result::MHD_NO;
     }
 
@@ -50,52 +61,79 @@ int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_
     std::string response_buffer;
     MHD_Result ret = MHD_NO;
 
-    char* event_id = new char[POSTBUFFSIZE];
+    struct event_info event;
+    event.time_stamp = 0;
+    event.id = new char[POSTBUFFSIZE];
+    memset(event.id, '\0', POSTBUFFSIZE);
 
     // 반환 값 순회한 header 값의 개수
-    MHD_get_connection_values(conn, MHD_ValueKind::MHD_HEADER_KIND, event_header_iter, event_id);
+    MHD_get_connection_values(conn, MHD_ValueKind::MHD_HEADER_KIND, event_header_iter, static_cast<void*>(&event));
 
     // HTTP 헤더에 event_id가 존재하지 않음
-    if(!strcmp(event_id, "")){
-        response_buffer.assign("event id is not exist");
+    if(strlen(event.id)==0){
+        response_buffer.assign("id is empty");
         ret = send_response(conn, response_buffer, MHD_HTTP_BAD_REQUEST);
         con_cls = nullptr;
+
+        delete event.id;
+
+        return ret;
+    }
+    else if(event.time_stamp == 0){
+        response_buffer.assign("time is empty");
+        ret = send_response(conn, response_buffer, MHD_HTTP_BAD_REQUEST);
+        con_cls = nullptr;
+
+        delete event.id;
 
         return ret;
     }
     // HTTP 헤더에 event_id가 존재
     else {
-        spdlog::info("event {} accept", event_id); 
+        spdlog::info("event {} accept", std::string(event.id)); 
 
-        std::string event;
-        event.assign(event_id);
+        std::string event_str;
+        event_str.assign(event.id);
 
-        event += ".mp4";
+        int vid_ret = _video_handler->process_video(event.time_stamp, event.id);
 
-        // video processing 호출 /////////  
-        //                             //
-        /////////////////////////////////
+        if(vid_ret != 0) {
+            response_buffer.assign("Internal Server Error");
+            ret = send_response(conn, response_buffer, MHD_HTTP_INTERNAL_SERVER_ERROR);
 
+            delete event.id;
+
+            return ret;
+        }
+        std::string vid_path;
         // 이벤트 영상 파일 있음
-        if(access(event.c_str(), F_OK) != -1){
-            
+        if(_video_handler->get_video(vid_path, event.id, event.time_stamp) == 0){
+            spdlog::debug("vid_path {}", vid_path);
+            std::string event_id;
+            event_id.assign(event.id);
+            std::thread curl_thread = std::thread([=](){
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                spdlog::debug("in curl thread");
+                CURL* curl;
+                http::EventHandlerHTTP::get_instance()->video_send(curl, vid_path.c_str(), event_id.c_str());
+            });
+            curl_thread.detach();
             //  response로 있음을 알리고
             response_buffer.assign("success");
             ret = send_response(conn, response_buffer, MHD_HTTP_OK);
-            
-            //  별도 HTTP POST request로 비디오 전송
-            CURL* curl;
-            video_send(curl, event.c_str(), event_id);
         }
         // 이벤트 영상 파일 없음
         else{
-            spdlog::error("event file {} is not exist", event);
+            spdlog::error("event file {} is not exist", event.id);
 
             response_buffer.assign("event video is not exist");
             ret = send_response(conn, response_buffer, MHD_HTTP_NOT_FOUND);
         }
     }
     con_cls = nullptr;
+
+    delete event.id;
+
     return ret;
 }
 
@@ -360,6 +398,7 @@ int EventHandlerHTTP::video_send(CURL* curl, const char* path, const char* event
         field = curl_mime_addpart(form);
         curl_mime_name(field, "description");
         curl_mime_data(field, _uuid.c_str(), CURL_ZERO_TERMINATED);
+        spdlog::debug("uuid {}", _uuid);
 
         // video data part
         field = curl_mime_addpart(form);
@@ -372,7 +411,7 @@ int EventHandlerHTTP::video_send(CURL* curl, const char* path, const char* event
         curl_easy_setopt(curl, CURLOPT_MIMEPOST, form);
 
         curl_easy_setopt(curl, CURLOPT_URL, request_url.c_str());
-
+        spdlog::debug("curl send");
         res = curl_easy_perform(curl);
 
         if(res != CURLE_OK) {
@@ -390,6 +429,7 @@ int EventHandlerHTTP::video_send(CURL* curl, const char* path, const char* event
 
             return 0;            
         }
+        spdlog::debug("curl {}", (int) res);
     }
     return 0;
 }

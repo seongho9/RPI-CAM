@@ -9,6 +9,7 @@
 
 #include "utils/Singleton.hpp"
 #include "config/ProgramConfig.hpp"
+#include "video/VideoHandler.hpp"
 
 namespace http
 {
@@ -21,6 +22,12 @@ namespace http
         std::string fps;
         std::vector<char> file_content;
         bool upload_done;
+    };
+
+    struct event_info
+    {
+        time_t time_stamp;
+        char* id;
     };
 
     enum HTTP_METHOD
@@ -40,10 +47,7 @@ namespace http
         int _upload_client;
         std::mutex _upload_client_mutex;
 
-        //////////////////////////////////////////
-        // _video_handler                       //
-        // _event_handler                       //
-        //////////////////////////////////////////
+        video::VideoHandler* _video_handler = video::VideoHandler::get_instance();
 
         friend class utils::Singleton<EventHandlerHTTP>;
 
