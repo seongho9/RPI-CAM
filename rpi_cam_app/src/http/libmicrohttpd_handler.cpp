@@ -31,6 +31,12 @@ MHD_Result http::libmicrohttpd_handler(
     else if(!strcmp(url, "/program") && !strcmp(method, "POST")) {
         ret =  static_cast<MHD_Result>(_handler->program_accept(conn, upload_data, data_size, con_cls));
     }
+    else if(!strcmp(url, "/program/start") && !strcmp(method, "POST")){
+        ret = static_cast<MHD_Result>(_handler->program_start_accept(conn, upload_data, data_size, con_cls));
+    }
+    else if(!strcmp(url, "/program/stop") && !strcmp(method, "POST")) {
+        ret = static_cast<MHD_Result>(_handler->program_stop_accept(conn, upload_data, data_size, con_cls));
+    }
     else {
         spdlog::warn("invalid request {} {}", method, url);
         

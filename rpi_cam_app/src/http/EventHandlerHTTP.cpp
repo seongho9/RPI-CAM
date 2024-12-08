@@ -142,7 +142,7 @@ int EventHandlerHTTP::video_accpet(MHD_Connection* conn, const char* data, size_
     return 0;
 }
 
-/// @brief POST data를 처리하기 위해 사용, key-value 형태로 사용됨
+/// @brief 프로그램의 내용을 받아오기 위함, key-value 형태로 사용됨
 /// @param coninfo_cls 커스텀 값으로, iterate 함수 내에서 사용
 /// @param  MHD_ValueKind 값은 종류
 /// @param key \0으로 끝나는 key 값
@@ -286,6 +286,132 @@ int EventHandlerHTTP::program_accept(MHD_Connection* conn, const char* data, siz
             if(con_info->upload_done) {
                 send_response(conn, "program file saved", MHD_HTTP_OK);
             }
+
+            return MHD_Result::MHD_YES;
+        }
+    }
+}
+
+/// @brief 시작할 프로그램의 이름을 받기위함
+/// @param coninfo_cls 커스텀 값으로, iterate 함수 내에서 사용
+/// @param  MHD_ValueKind 값은 종류
+/// @param key \0으로 끝나는 key 값
+/// @param filename 업로드 된 파일명, 모르면 NULL
+/// @param content_type mime-type
+/// @param transfer_encoding 데이터 인코딩으로, 모르면 NULL
+/// @param data 데이터
+/// @param off 데이터 offset
+/// @param size 데이터 크기
+/// @return MHD_Result::YES : iterating을 지속, MHD_Result::NO : iterationg을 끝냄
+static MHD_Result iterate_get_filename(void* coninfo_cls, 
+    enum MHD_ValueKind kind, const char* key, const char* filename, const char* content_type, const char* transfer_encoding, 
+    const char* data, uint64_t off, size_t size)
+{
+    struct connection_info* con_info = static_cast<struct connection_info*>(coninfo_cls);
+    //  파일명
+    if(!strcmp(key, "name")) {
+        con_info->file_name.assign(data);
+    }
+    //  순회 완료
+    if(size==0){
+        spdlog::info("post iteration done");
+        return MHD_NO;
+    }
+    //  찾는 중
+    else{
+        return MHD_YES;
+    }
+}
+
+int EventHandlerHTTP::program_start_accept(MHD_Connection* conn, const char* data, size_t* size, void** con_cls)
+{
+    struct connection_info* con_info;
+    // POST 요청 첫 시작
+    if(*con_cls == nullptr){
+        spdlog::info("/program/start accpet");
+        con_info = nullptr;
+        con_info = new connection_info();
+
+        if(con_info == nullptr) {
+            spdlog::error("failed to create post infomation");
+            return send_response(conn, "Internal Server Error", MHD_HTTP_INTERNAL_SERVER_ERROR);
+        }
+        else {
+            con_info->postprocessor = nullptr;
+            con_info->file_name.clear();
+        }
+        con_info->postprocessor = MHD_create_post_processor(conn, POSTBUFFSIZE, iterate_get_filename, (void*)con_info);
+
+        if(con_info->postprocessor == 0x0) {
+            delete con_info;
+            spdlog::error("failed to create post processor");
+
+            return send_response(conn, "Internal Server Error", MHD_HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        *con_cls = con_info;
+
+        return MHD_Result::MHD_YES;
+    }
+    else{
+        con_info = static_cast<struct connection_info*>(*con_cls);
+        // 요청 진행 중
+        if(*size != 0) {
+            MHD_post_process(con_info->postprocessor, data, *size);
+            *size = 0;
+            return MHD_Result::MHD_YES;
+        }
+        // 요청 끝
+        else {
+            _event_handler->start_event(con_info->file_name);
+
+            return MHD_Result::MHD_YES;
+        }
+    }
+}
+
+int EventHandlerHTTP::program_stop_accept(MHD_Connection* conn, const char* data, size_t* size, void** con_cls)
+{
+    struct connection_info* con_info;
+    // POST 요청 첫 시작
+    if(*con_cls == nullptr){
+        spdlog::info("/program/stop accpet");
+        con_info = nullptr;
+        con_info = new connection_info();
+
+        if(con_info == nullptr) {
+            spdlog::error("failed to create post infomation");
+            return send_response(conn, "Internal Server Error", MHD_HTTP_INTERNAL_SERVER_ERROR);
+        }
+        else {
+            con_info->postprocessor = nullptr;
+            con_info->file_name.clear();
+        }
+        con_info->postprocessor = MHD_create_post_processor(conn, POSTBUFFSIZE, iterate_get_filename, (void*)con_info);
+
+        if(con_info->postprocessor == 0x0) {
+            delete con_info;
+            spdlog::error("failed to create post processor");
+
+            return send_response(conn, "Internal Server Error", MHD_HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        *con_cls = con_info;
+
+        return MHD_Result::MHD_YES;
+    }
+    else{
+        con_info = static_cast<struct connection_info*>(*con_cls);
+        // 요청 진행 중
+        if(*size != 0) {
+            MHD_post_process(con_info->postprocessor, data, *size);
+            *size = 0;
+            return MHD_Result::MHD_YES;
+        }
+        // 요청 끝
+        else {
+            _event_handler->stop_event(con_info->file_name);
+
             return MHD_Result::MHD_YES;
         }
     }

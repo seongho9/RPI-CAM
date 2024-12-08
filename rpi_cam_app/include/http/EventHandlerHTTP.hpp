@@ -10,6 +10,7 @@
 #include "utils/Singleton.hpp"
 #include "config/ProgramConfig.hpp"
 #include "video/VideoHandler.hpp"
+#include "event/EventHandler.hpp"
 
 namespace http
 {
@@ -49,13 +50,15 @@ namespace http
 
         video::VideoHandler* _video_handler = video::VideoHandler::get_instance();
 
+        event::EventHandler* _event_handler = event::EventHandler::get_instance();
+
         friend class utils::Singleton<EventHandlerHTTP>;
 
         EventHandlerHTTP();
         
         MHD_Result send_response(MHD_Connection* conn, const std::string& buffer, int status);
-
         int send_request(CURL* curl, const std::string& url, const std::string& payload);
+
     public:
         std::mutex& upload_client_mutex();
         
@@ -81,6 +84,20 @@ namespace http
         /// @param size http 데이터 크기
         /// @return 0:성공, others:실패
         int program_accept(MHD_Connection* conn, const char* data, size_t* size, void** con_cls);
+
+        /// @brief 이벤트 프로그램 실행
+        /// @param conn MHD_Connection
+        /// @param data http 데이터
+        /// @param size http 데이터 크기
+        /// @return 0:성공, others:실패
+        int program_start_accept(MHD_Connection* conn, const char* data, size_t* size, void** con_cls);
+        
+        /// @brief 이벤트 프로그램 중지
+        /// @param conn MHD_Connection
+        /// @param data http 데이터
+        /// @param size http 데이터 크기
+        /// @return 0:성공, others:실패
+        int program_stop_accept(MHD_Connection* conn, const char* data, size_t* size, void** con_cls);
 
         /// @brief master 카메라일 경우 이벤트 발생
         /// @param group_name event group 이름
