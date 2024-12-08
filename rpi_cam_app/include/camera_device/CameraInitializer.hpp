@@ -10,8 +10,6 @@
 
 namespace camera_device
 {
-
-
     class CameraInitializer : public utils::Initialzier
     {
     private:

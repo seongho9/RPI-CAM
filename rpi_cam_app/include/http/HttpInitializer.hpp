@@ -22,18 +22,17 @@ namespace http
     void post_request_complete(
         void *cls, struct MHD_Connection* conn, void** con_cls, enum MHD_RequestTerminationCode toe);
 
-    class HttpInitializer : public utils::Initialzier, public utils::Singleton<HttpInitializer>
+    class HttpInitializer : public utils::Initialzier
     {
     private:
         std::string _uuid;
         const config::HttpConfig* _config;
         struct MHD_Daemon* _daemon;
 
-        friend utils::Singleton<HttpInitializer>;
-
-        HttpInitializer();
 
     public:
+        HttpInitializer();
+        
         int init() override;
         int start() override;
         int stop() override;
