@@ -15,11 +15,17 @@ namespace camera_device
     class CameraInitializer : public utils::Initialzier
     {
     private:
-        config::CameraConfig* _cam_config;
+        const config::CameraConfig* _cam_config;
         bool _is_run;
         uint8_t* _camera_buffers[N_CAM_BUF];
         VideoQueue* _queue;
-        int fd;
+        int _fd;
+
+        int set_v4l2_format();
+        int set_v4l2_buffer();
+
+        int queue_v4l2_buffer(int index);
+        struct VideoBuffer* deque_v4l2_buffer(int* index);
 
         int loop();
     public:
