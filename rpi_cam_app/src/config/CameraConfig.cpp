@@ -52,6 +52,8 @@ int CameraConfig::read_config()
         else if(format == "V4L2_PIX_FMT_YUYV") {
             _metadata.set_type(V4L2_PIX_FMT_YUYV);
         }
+        else if(format == "V4L2_PIX_FMT_MJPEG")
+            _metadata.set_type(V4L2_PIX_FMT_MJPEG);
         else {
             spdlog::error("Not Supported Foramt");
             return 1;
