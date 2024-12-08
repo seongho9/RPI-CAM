@@ -7,6 +7,7 @@ add_executable(
     http/EventHandlerHTTP.cpp http/HttpInitializer.cpp http/libmicrohttpd_handler.cpp http/post_request_complete.cpp
     video/VideoInitializer.cpp video/VideoHandler.cpp video/VideoStreamerGST.cpp
     camera_device/VideoQueue.cpp
+    camera_device/VideoQueue.cpp camera_device/CameraInitializer.cpp
 )
 
 target_include_directories(
