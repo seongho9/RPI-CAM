@@ -28,10 +28,13 @@ int main(int argc, char const *argv[])
     init->start();
 
     //-------------------camera-----------------------
-    camera_device::CameraInitializer* cam_init = new camera_device::CameraInitializer();
-    cam_init->init();
-    cam_init->start();
-
+    std::thread camear_thread([&](){
+        camera_device::CameraInitializer* cam_init = new camera_device::CameraInitializer();
+        cam_init->init();
+        cam_init->start();
+    });
+    camear_thread.detach();
+    
     //-------------------event-----------------------
     event::EventInitializer* event_init = new event::EventInitializer();
     event_init->init();
