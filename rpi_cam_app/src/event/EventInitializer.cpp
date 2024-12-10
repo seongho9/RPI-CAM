@@ -14,6 +14,7 @@ EventInitializer::EventInitializer()
 
 int EventInitializer::init()
 {
+    spdlog::info("Event Initialize Start ...");
     for(const auto& entry: std::filesystem::directory_iterator("event")){
         std::string name = entry.path().filename().string();
 
@@ -23,12 +24,14 @@ int EventInitializer::init()
         spdlog::info("Event \"{}\" started", name);
     }
 
-    return 0 ;
+    return 0;
 }
 
 int EventInitializer::start()
 {
-    spdlog::info("all event done!");
+    spdlog::info("=======================");
+    spdlog::info("===Event Initialized===");
+    spdlog::info("=======================");
 
     return 0;
 }

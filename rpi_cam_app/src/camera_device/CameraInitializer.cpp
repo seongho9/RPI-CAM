@@ -89,10 +89,10 @@ int CameraInitializer::set_v4l2_format()
     spdlog::info("====V4L2 set====");
     spdlog::info("size : {} * {}", format.fmt.pix.width, format.fmt.pix.height);
     spdlog::info("color map : {} {} {} {}", 
-        (format.fmt.pix.pixelformat)       & 0xFF,
-        (format.fmt.pix.pixelformat >> 8)  & 0xFF,
-        (format.fmt.pix.pixelformat >> 16) & 0xFF,
-        (format.fmt.pix.pixelformat >> 24) & 0xFF);
+        (char)((format.fmt.pix.pixelformat)       & 0xFF),
+        (char)((format.fmt.pix.pixelformat >> 8)  & 0xFF),
+        (char)((format.fmt.pix.pixelformat >> 16) & 0xFF),
+        (char)((format.fmt.pix.pixelformat >> 24) & 0xFF));
     
     if(ioctl(_fd, VIDIOC_S_FMT, &format) == -1) {
         spdlog::error("Failed to set video foramt");
@@ -146,7 +146,8 @@ int CameraInitializer::set_v4l2_buffer()
         }
 
         _camera_buffers[i] = (uint8_t*)mmap(NULL, buf.length, PROT_READ|PROT_WRITE, MAP_SHARED, _fd, buf.m.offset);
-    }
+    }  
+    spdlog::info("Buffer Request done");
 
     return 0;
 }
@@ -186,7 +187,7 @@ struct VideoBuffer* CameraInitializer::deque_v4l2_buffer(int* index)
 
     struct VideoBuffer* ret_buffer = new struct VideoBuffer;
 
-    ret_buffer->timestamp = static_cast<time_t>(dqbuf.timestamp.tv_sec);
+    ret_buffer->timestamp = time(NULL);
     ret_buffer->metadata = _cam_config->metadata();
     ret_buffer->size = dqbuf.bytesused;
     ret_buffer->buffer = (uint8_t*)malloc(dqbuf.bytesused);
