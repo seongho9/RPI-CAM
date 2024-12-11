@@ -2,6 +2,7 @@
 #include "spdlog/spdlog.h"
 #include <cstring>
 #include <pthread.h>
+#include <ctime>
 
 using namespace camera_device;
 
@@ -203,17 +204,17 @@ int VideoQueue::distribute_buffer()
             spdlog::info("Queue distributer End...");
             continue;
         }
-        spdlog::debug("hello2");
         VideoBuffer* input = _input.front();
-
         _input.pop();
+
         VideoBuffer* copy_to = nullptr;
 
         // 초당 프레임 리셋
         if((++_current_frame_no) > _device_fps){
             _current_frame_no = 1;
         }
-
+        time_t t = time(NULL);
+        
         // 각 thread의 정보를 통해 복사
         for(auto& item : _thread_info){
             if( (_current_frame_no % item.second->_fps) == 0 ){
@@ -226,6 +227,9 @@ int VideoQueue::distribute_buffer()
                 memcpy(copy_to, input, sizeof(VideoBuffer));
                 copy_to->buffer = (uint8_t*)malloc(input->size);
                 memcpy(copy_to->buffer, input->buffer, input->size);
+
+                copy_to->timestamp = t;
+
                 // output buffer에 reference push
                 _output.find(item.first)->second->push(copy_to);
                 copy_to=nullptr;

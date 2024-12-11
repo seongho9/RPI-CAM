@@ -1,4 +1,7 @@
-#include <dlfcn.h>
+extern "C"
+{
+    #include <dlfcn.h>
+}
 #include <filesystem>
 #include <fstream>
 #include <exception>
@@ -33,7 +36,7 @@ static bool is_positive(const std::string& str)
 
 EventProcessor::EventProcessor(std::string event_name)
 {
-
+    spdlog::info("event name {}", event_name);
     _video_q = camera_device::VideoQueue::get_instance();
     _event_handler = http::EventHandlerHTTP::get_instance();
     
@@ -41,7 +44,6 @@ EventProcessor::EventProcessor(std::string event_name)
 
     std::string event_directory("event/");
     event_directory.append(event_name);
-
     try {
         for(const auto& entry : std::filesystem::directory_iterator(event_directory)){
             const std::string& filename = entry.path().filename().string();
@@ -71,12 +73,12 @@ EventProcessor::EventProcessor(std::string event_name)
 int EventProcessor::event_init()
 {
     std::stringstream so_stream;
-    so_stream << _event_name << ".so";
+    so_stream << "./event/" <<_event_name << "/" << _event_name << ".so";
 
     // open 시점에 로드
-    _handle = dlopen(so_stream.str().c_str(), RTLD_NOW);
-    if(_handle){
-        spdlog::error("Error Opening Event file {}", so_stream.str());
+    _handle = dlopen(so_stream.str().c_str(), RTLD_LAZY);
+    if(!_handle){
+        spdlog::error("Error Opening Event file {} {}", so_stream.str(), dlerror());
         return 1;
     }
     // dlfcn error string 초기화
@@ -97,6 +99,7 @@ int EventProcessor::event_init()
 int EventProcessor::event_exec(camera_device::VideoBuffer* buffer)
 {
     int ret = -1;
+    
     ret = _event_program(
             buffer->buffer,                         //  버퍼 내용
             static_cast<size_t>((buffer->size)),    //  버퍼 크기
@@ -112,6 +115,7 @@ int EventProcessor::event_exec(camera_device::VideoBuffer* buffer)
     }
     else if(ret) {
         CURL* curl;
+        spdlog::error("timestamp {}", buffer->timestamp);
         _event_handler->event_send(curl, "", buffer->timestamp);
     }
 
@@ -127,8 +131,8 @@ int EventProcessor::event_loop()
     info->_is_run = _enable;
 
     _video_q->insert_event(_event_name, info);
-    while(_info->_is_run){
-
+    //while(_info->_is_run){
+    while(1){
         camera_device::VideoBuffer* buffer = _video_q->pop(_event_name);
 
         if(buffer == nullptr) {
@@ -138,9 +142,12 @@ int EventProcessor::event_loop()
 
         ret = event_exec(buffer);
         if(ret){
-            //  이벤트 프로그램 내부 오류 발생
+            spdlog::error("Event {} Error", _event_name);
         }
+        delete buffer;
     }
+
+    spdlog::info("Event {} End", _event_name);
 
     return 0;
 }

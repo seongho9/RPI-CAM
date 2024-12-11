@@ -56,6 +56,7 @@ void VideoStreamerGST::on_media_configure(GstRTSPMediaFactory* factory, GstRTSPM
     struct sess_info* session = new sess_info();
     session->id = uuid;
     session->info = t_info; 
+    session->cnt = 0U;
     video_q->insert_event(*uuid, t_info); 
     if(appsrc) {
         // push-data
@@ -136,7 +137,7 @@ void VideoStreamerGST::need_data(GstElement* appsrc, guint size, gpointer user_d
 
         
             // timestamp
-            gint64 timestamp = frame_duration * (_cnt);
+            gint64 timestamp = frame_duration * (info->cnt);
             GST_BUFFER_PTS(buffer) = timestamp;
             GST_BUFFER_DTS(buffer) = timestamp;
             GST_BUFFER_DURATION(buffer) = frame_duration;
@@ -151,7 +152,7 @@ void VideoStreamerGST::need_data(GstElement* appsrc, guint size, gpointer user_d
                 if(ret != GST_FLOW_OK) {
                     spdlog::error("Failed to push buffer");
                 } else{
-                    _cnt++;
+                    info->cnt++;
                 }
             }
             delete mem_buffer;

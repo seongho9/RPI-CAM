@@ -7,6 +7,8 @@
 #include "http/EventHandlerHTTP.hpp"
 #include "camera_device/VideoQueue.hpp"
 
+#include <omp.h>
+
 // forward declaration
 namespace http {
 class EventHandlerHTTP;

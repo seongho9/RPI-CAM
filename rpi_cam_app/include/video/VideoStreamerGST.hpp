@@ -17,6 +17,7 @@ namespace video{
     struct sess_info
     {
         std::string* id;
+        uint64_t cnt;
         camera_device::ThreadInfo* info;
     };
     class VideoStreamerGST: public VideoStreamer

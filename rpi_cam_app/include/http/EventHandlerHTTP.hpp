@@ -28,7 +28,7 @@ namespace http
     struct event_info
     {
         time_t time_stamp;
-        char* id;
+        std::string id;
     };
 
     enum HTTP_METHOD

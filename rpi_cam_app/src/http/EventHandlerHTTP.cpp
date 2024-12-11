@@ -40,42 +40,47 @@ static MHD_Result event_header_iter(void* cls, enum MHD_ValueKind kid, const cha
 {
     struct event_info* info = static_cast<struct event_info*>(cls);
     struct tm tm = {0};
-    if(!strcmp(key, "transactionId")){
-        memcpy(info->id, value, strlen(value)+1);
+
+    std::string key_str;
+    key_str.assign(key);
+
+    std::string value_str;
+    value_str.assign(value);
+
+
+    if(key_str == "transactionid"){
+        info->id.assign(value_str);
     }
-    else if(!strcmp(key, "event_time")){
+    else if(key_str == "eventtime"){
         info->time_stamp = static_cast<time_t>(std::strtoll(value, nullptr, 10));
     }
 
-    if(strlen(info->id)!=0 && info->time_stamp != 0){
+    if(info->id.length() != 0 && info->time_stamp != 0){
         return MHD_Result::MHD_NO;
     }
-
     //  순회 지속
      return MHD_Result::MHD_YES;
 }
 
 int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_t* size, void** con_cls)
 {
+    spdlog::info("accpet /event");
     struct MHD_Response* response = nullptr;
     std::string response_buffer;
     MHD_Result ret = MHD_NO;
 
     struct event_info event;
     event.time_stamp = 0;
-    event.id = new char[POSTBUFFSIZE];
-    memset(event.id, '\0', POSTBUFFSIZE);
+
 
     // 반환 값 순회한 header 값의 개수
     MHD_get_connection_values(conn, MHD_ValueKind::MHD_HEADER_KIND, event_header_iter, static_cast<void*>(&event));
-
+    
     // HTTP 헤더에 event_id가 존재하지 않음
-    if(strlen(event.id)==0){
-        response_buffer.assign("id is empty");
+    if(event.id.length() == 0){
+        response_buffer.assign("id is emtpy");
         ret = send_response(conn, response_buffer, MHD_HTTP_BAD_REQUEST);
         con_cls = nullptr;
-
-        delete event.id;
 
         return ret;
     }
@@ -84,7 +89,6 @@ int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_
         ret = send_response(conn, response_buffer, MHD_HTTP_BAD_REQUEST);
         con_cls = nullptr;
 
-        delete event.id;
 
         return ret;
     }
@@ -101,7 +105,6 @@ int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_
             response_buffer.assign("Internal Server Error");
             ret = send_response(conn, response_buffer, MHD_HTTP_INTERNAL_SERVER_ERROR);
 
-            delete event.id;
 
             return ret;
         }
@@ -113,7 +116,7 @@ int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_
             event_id.assign(event.id);
             std::thread curl_thread = std::thread([=](){
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                spdlog::debug("in curl thread");
+                spdlog::info("video send");
                 CURL* curl;
                 http::EventHandlerHTTP::get_instance()->video_send(curl, vid_path.c_str(), event_id.c_str());
             });
@@ -131,8 +134,6 @@ int EventHandlerHTTP::event_accept(MHD_Connection* conn, const char* data, size_
         }
     }
     con_cls = nullptr;
-
-    delete event.id;
 
     return ret;
 }
@@ -439,31 +440,35 @@ int EventHandlerHTTP::event_send(CURL* curl, const char* event_name, time_t time
 {
     CURLcode res;
 
-
     std::stringstream payload_stream;
     std::stringstream time_stream;
+    std::stringstream unix_stream;
 
     boost::property_tree::ptree payload_tree;
 
     std::string request_url = _server_address + "/event";
     std::string request;
 
+    std::string time_str = std::to_string(time);
+    // json 객체 생성
+    payload_tree.put("description", _uuid);
+    //payload_tree.put("unixTime", std::to_string(time));
+    unix_stream << time;
+    
     //  unix 시간을 현지 시각으로 변경
     std::tm* tm;
     tm = std::localtime(&time);
     time_stream << std::put_time(tm, "%Y-%m-%d %H:%M:%S");
-
-    // json 객체 생성
-    payload_tree.put("description", _uuid);
     payload_tree.put("unixtime", time);
+
     payload_tree.put("localtime", time_stream.str());
 
     // json 직렬화
     boost::property_tree::write_json(payload_stream, payload_tree);
     request = payload_stream.str();
 
-    spdlog::debug("request url : {}", request_url);
-    spdlog::debug("request payload : {}", request);
+    spdlog::info("request url : {}", request_url);
+    spdlog::info("request payload : {}", request);
 
     curl = curl_easy_init();
     if(curl) {
@@ -517,7 +522,7 @@ int EventHandlerHTTP::video_send(CURL* curl, const char* path, const char* event
 
         // transactionId part
         field = curl_mime_addpart(form);
-        curl_mime_name(field, "transactionId");
+        curl_mime_name(field, "transactionid");
         curl_mime_data(field, event_id, CURL_ZERO_TERMINATED);
         
         // description part
@@ -626,14 +631,18 @@ int EventHandlerHTTP::send_request(CURL* curl, const std::string& url, const std
         res = curl_easy_perform(curl);
 
         if(res != CURLE_OK){
+            std::string resp;
+            resp.assign(response);
             spdlog::error("event send faield : {}", curl_easy_strerror(res));
-            spdlog::error("error message : {}", response);
+            spdlog::error("error message : {}", resp);
 
             curl_easy_cleanup(curl);
             return 2;
         }
         else {
-            spdlog::info("event send : {}", response);
+            std::string resp;
+            resp.assign(response);
+            spdlog::info("event send : {}", resp);
 
             curl_easy_cleanup(curl);
             return 0;

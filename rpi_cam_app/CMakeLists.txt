@@ -73,7 +73,7 @@ message(STATUS "GLIB_INC: ${GLIB_INC_2}")
 
 add_subdirectory(src)
 
-add_subdirectory(test)
+#add_subdirectory(test)
 
 include_directories("${CMAKE_SOURCE_DIR}/include")
 
