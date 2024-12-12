@@ -16,6 +16,21 @@ USB Web Cam
 - cURL
 - boost 
 
+## 이벤트 프로그램
+
+동적으로 솔루션 내에 로드 가능한 프로그램으로, `.so` 형식의 파일로 만들어야 한다.
+
+해당 프로그램의 진입점은 반드시 아래와 같이 사용해야 한다.
+```cpp
+extern "C"
+{
+  int event_main(uint8_t* buffer, size_t size, time_t timestamp, int width, int height)
+  {
+  
+  }
+}
+```
+
 ## 빌드
 
 `yocto/conf` 내에 설정파일을 이용하여, 이미지 빌드 및 SDK를 구성한다
