@@ -27,8 +27,15 @@ bitbake -c populate_sdk rpi-test-image
 ```bash
 bitbake rpi-test-image
 ```
-
 이 때, 내부에 포함된 이벤트 발생 알고리즘을 이용한다면, `meta-rpicam` 레포지토리에서의 레이어를 추가하여 구성한다 (현 conf 파일에는 `meta-rpicam` 및 `ncnn` 프레임워크 포함).
+
+해당 레포지토리를 clone하여 cmake의 SDK path를 설정해주고, 아래와 같이 빌드
+```bash
+cd RPI-CAM/rpi_cam_app
+mkdir build && cd build
+cmake ..
+make -j$(nproc)
+```
 
 ## 사용법
 
