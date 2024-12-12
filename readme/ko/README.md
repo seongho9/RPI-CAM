@@ -94,5 +94,5 @@ bitbake rpi-test-image
 
 ## 구조
 
-![RPI-CAM consistent](C:\Users\SeonghoJang\Desktop\veda_final\RPI-CAM consist.PNG)
+![RPI-CAM consistent](https://github.com/VEDA-Snackticon/RPI-CAM/blob/dev/readme/ko/RPI-CAM%20consist.PNG?raw=true)
 
