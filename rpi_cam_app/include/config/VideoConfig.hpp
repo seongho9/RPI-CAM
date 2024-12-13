@@ -21,11 +21,15 @@ namespace config
         /// @brief frame rate로 "frame/second" 형식으로 기술
         std::string _frame_rate;
         /// @brief 영상 포맷
-        std::string _foramt;
+        std::string _format;
         /// @brief 영상을 저장하는 단위 시간(초)
         int _split_time;
         /// @brief 이벤트 발생시 보내는 영상의 길이(초)
         int _duration;
+        /// @brief 데이터가 작성되는 부분
+        std::string _vid_path;
+        /// @brief 저장된 데이터를 유지시킬 시간(초)
+        int _maintain_sec;
 
 
         int read_config() override;
@@ -37,9 +41,12 @@ namespace config
         const int& width() const;
         const int& height() const;
         const std::string& frame_rate() const;
-        const std::string& foramt() const;
+        const std::string& format() const;
         const int split_time() const;
         const int duration() const;
+        const int maintain() const;
+        const std::string& save_path() const;
+        
     };
 };
 #endif

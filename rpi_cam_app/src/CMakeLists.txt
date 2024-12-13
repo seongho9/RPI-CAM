@@ -3,7 +3,11 @@
 add_executable(
     main
     main.cpp
-    config/EventConfig.cpp config/HttpConfig.cpp config/VideoConfig.cpp config/ProgramConfig.cpp config/CameraConfig.cpp
+    config/HttpConfig.cpp config/VideoConfig.cpp config/ProgramConfig.cpp config/CameraConfig.cpp
+    http/EventHandlerHTTP.cpp http/HttpInitializer.cpp http/libmicrohttpd_handler.cpp http/post_request_complete.cpp
+    video/VideoInitializer.cpp video/VideoHandler.cpp video/VideoStreamerGST.cpp video/GstreamerCallbacks.cpp
+    camera_device/VideoQueue.cpp camera_device/CameraInitializer.cpp
+    event/EventHandler.cpp event/EventInitializer.cpp event/EventProcessor.cpp
 )
 
 target_include_directories(
@@ -17,7 +21,7 @@ target_include_directories(
 # add link libraries
 target_link_libraries(
     main
-    gstreamer-1.0 gobject-2.0 glib-2.0
-    ssl crypto microhttpd
+    gstreamer-1.0 gobject-2.0 glib-2.0 gstrtspserver-1.0 gstrtsp-1.0 gstapp-1.0
+    ssl crypto microhttpd curl
     boost_json
 )

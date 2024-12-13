@@ -22,6 +22,12 @@ namespace config
         int _thread_pool;
         /// @brief tls enabling
         int _tls_enabled;
+        /// @brief remote server
+        std::string _remote_server;
+        /// @brief concurrent upload user
+        int _upload_user;
+        /// @brief http server port
+        int _port;
 
         int read_config() override;
     public:
@@ -41,6 +47,15 @@ namespace config
         /// @brief tls 활성화 여부
         /// @return 0 -> false, 1 -> true
         const int& tls_enable() const;
+        /// @brief http 서버 포트
+        /// @return 포트번호
+        const int& port() const;
+        /// @brief 동시에 파일 업로드가 가능한 유저수
+        /// @return 유저수
+        const int& upload_user() const;
+        /// @brief 원격 서버 주소
+        /// @return ipv4 address
+        const std::string& remote_server() const;
     };
 };
 

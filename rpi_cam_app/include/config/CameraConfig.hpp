@@ -5,6 +5,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include "config/Config.hpp"
+#include "utils/Singleton.hpp"
 
 namespace config
 {
@@ -23,7 +24,7 @@ namespace config
         const int& get_width() const;
         const int& get_height() const;
     };
-    class CameraConfig : public Config
+    class CameraConfig : public Config, public utils::Singleton<CameraConfig>
     {
     private:
         boost::property_tree::ptree _props;
@@ -32,6 +33,8 @@ namespace config
         std::string _device_path;
         /// @brief 동영상 메타데이터
         VideoMeta _metadata;
+
+        int _fps;
 
         int read_config() override;
 
@@ -46,6 +49,9 @@ namespace config
         /// @brief 동영상 너비, 높이, 포맷
         /// @return VideoMeta&
         const VideoMeta& metadata() const;
+        /// @brief 초당 처리양 가져옴
+        /// @return fps number
+        const int& fps() const;
     };
 };
 

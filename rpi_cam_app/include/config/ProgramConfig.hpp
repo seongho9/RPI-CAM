@@ -2,7 +2,6 @@
 #define _PROGRAM_CONFIG_H
 
 #include "config/HttpConfig.hpp"
-#include "config/EventConfig.hpp"
 #include "config/VideoConfig.hpp"
 #include "config/CameraConfig.hpp"
 
@@ -13,7 +12,6 @@ namespace config
     class ProgramConfig : public utils::Singleton<ProgramConfig>
     {
     private:
-        EventConfig* _event_config = nullptr;
         HttpConfig* _http_config = nullptr;
         VideoConfig* _video_config = nullptr;
         CameraConfig* _camera_config = nullptr;
@@ -24,9 +22,6 @@ namespace config
     protected:
         ProgramConfig();
     public:
-        /// @brief EventConfig 객체를 가져옴(Event 관련 설정 값)
-        /// @return 실패시 nullptr, 성공시 해당하는 객체의 주소
-        const EventConfig* event_config();
         /// @brief HttpConfig 객체를 가져옴(HTTP 관련 설정 값)
         /// @return 실패시 nullptr, 성공시 해당하는 객체의 주소
         const HttpConfig* http_config();
