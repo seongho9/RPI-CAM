@@ -10,8 +10,10 @@
 
 ## 도식도
 - 전반적인 프로세스 흐름
+  
 ![image](https://github.com/user-attachments/assets/49b00dd6-fe4b-4fbd-8882-361d3de21e41)
 - 프레임 분배 큐 흐름
+  
 ![image](https://github.com/user-attachments/assets/ffdabf39-d2b2-4205-b7d5-87db3b148d48)
 
 
