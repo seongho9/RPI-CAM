@@ -10,7 +10,7 @@
 
 ## 도식도
 
-[클래스도](https://drive.google.com/file/d/1Gvx9dX0S3uyN6MLYgNZ5ML7pcKwm5m4n/view?usp=sharing)
+[클래스도](https://drive.google.com/file/d/1VQL-pgxViqYGfa1V3pcnVCQo6hMAFKvi/view?usp=sharing)
 
 [설명](https://github.com/VEDA-Snackticon/RPI-CAM/blob/dev/readme/ko/README.md)
 
