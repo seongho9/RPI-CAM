@@ -8,8 +8,12 @@
 - 이벤트 프로그램 동적 로드/삭제 기능 구현
 - 영상 프레임 분배 큐 구현(Thread-Safe)
 
-## 프로세스 흐름
+## 도식도
+- 전반적인 프로세스 흐름
 ![image](https://github.com/user-attachments/assets/49b00dd6-fe4b-4fbd-8882-361d3de21e41)
+- 프레임 분배 큐 흐름
+![image](https://github.com/user-attachments/assets/ffdabf39-d2b2-4205-b7d5-87db3b148d48)
+
 
 [클래스도](https://drive.google.com/file/d/1Gvx9dX0S3uyN6MLYgNZ5ML7pcKwm5m4n/view?usp=sharing)
 
