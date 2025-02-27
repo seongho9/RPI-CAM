@@ -74,6 +74,8 @@
 CPU 사용량의 측면에서는 17.5%(7% / 40%), 33%(40%-7%) 의 성능향상을 
 메모리 사용량 측면에서는 100MB의 사용량을 확보하였으며, 메모리 사용률을 5% 에서 3.2%로 감소 시켰음
 
+그 밖에도 Multicast방식의 특성을 생각 했을 때, 네트워크 대역폭도 개선사항이 있을 것으로 판단됨
+
 ## 도식도
 
 [클래스도](https://drive.google.com/file/d/1VQL-pgxViqYGfa1V3pcnVCQo6hMAFKvi/view?usp=sharing)
