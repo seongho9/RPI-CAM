@@ -8,9 +8,9 @@ using namespace camera_device;
 
 VideoBuffer::~VideoBuffer()
 {
-    spdlog::debug("memory free {}", (void*)buffer);
-    free(buffer);
-    spdlog::debug("memory free done");
+    if(buffer != nullptr){
+        delete[] buffer;
+    }
 }
 
 VideoQueue::VideoQueue()
@@ -124,13 +124,10 @@ int VideoQueue::remove_event(std::string name)
         thread_info_flag = true;
     }
     else {
-        // thread info의 제거는 종속성 문제로 플래그만 설정하고, pop()으로 제거를 이관
         ThreadInfo* info = thread_info->second;
 
         info->_is_run = false;
-        info->_cond_t.notify_all();
-
-        spdlog::debug("notify all");
+        _thread_info.erase(name);
     }
     _thread_info_mutex.unlock();
 
@@ -146,7 +143,7 @@ int VideoQueue::remove_event(std::string name)
 
 int VideoQueue::push(VideoBuffer* buffer)
 {
-    spdlog::debug("push {}", (void*)buffer->buffer);
+    spdlog::trace("push {}", (void*)buffer->buffer);
     std::unique_lock<std::mutex> lock(_input_mutex);
     _input.push(buffer);
     _input_cond.notify_one();
@@ -197,7 +194,7 @@ int VideoQueue::distribute_buffer()
         // _input에 VideoBuffer가 들어올 때까지 대기
         // _input에 데이터가 있다면 굳이 대기할 필요 없음
         _input_cond.wait(lock,[&](){ 
-            spdlog::debug("check wake up {}", (int)_q_enable);
+            spdlog::trace("check wake up {}", (int)_q_enable);
             return !_q_enable || !_input.empty();});
 
         if(!_q_enable){
@@ -215,8 +212,10 @@ int VideoQueue::distribute_buffer()
         }
         time_t t = time(NULL);
         
+        _thread_info_mutex.lock();
         // 각 thread의 정보를 통해 복사
         for(auto& item : _thread_info){
+            spdlog::debug("Queue info : info-{} output-{}", _thread_info.size(), _output.size());
             if( (_current_frame_no % item.second->_fps) == 0 ){
                 //  lock 획득
                 std::unique_lock<std::mutex> q_lock(item.second->_mutex);
@@ -225,19 +224,21 @@ int VideoQueue::distribute_buffer()
                 // VideoBuffer 만큼 할당 후 복사
                 copy_to = new VideoBuffer();
                 memcpy(copy_to, input, sizeof(VideoBuffer));
-                copy_to->buffer = (uint8_t*)malloc(input->size);
+                copy_to->buffer = new uint8_t[input->size];
                 memcpy(copy_to->buffer, input->buffer, input->size);
 
                 copy_to->timestamp = t;
 
                 // output buffer에 reference push
-                _output.find(item.first)->second->push(copy_to);
-                copy_to=nullptr;
-
+                if(_output.find(item.first) != _output.end()) {
+                    _output.find(item.first)->second->push(copy_to);
+                    copy_to=nullptr;    
+                }
                 // notify thread
                 item.second->_cond_t.notify_all();
             }
         }
+        _thread_info_mutex.unlock();
         delete input;
     }
     spdlog::info("Video Queue End...");
