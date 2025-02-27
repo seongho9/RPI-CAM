@@ -8,6 +8,10 @@
 #include "video/VideoStreamerGST.hpp"
 #include "utils/Singleton.hpp"
 #include "config/ProgramConfig.hpp"
+
+#include "rtsp/server/RTSPListener.hpp"
+#include "rtsp/handler/RTSPSessionHandlerLive.hpp"
+
 #include <thread>
 #include <mutex>
 #include <thread>
@@ -17,14 +21,13 @@ namespace video{
     {
     private:
         const config::VideoConfig* _vid_config;
-        VideoStreamer* _streamer;
+        
         VideoHandler* _handler;
 
         std::mutex event_mutex;
         bool video_event_triggered = false;
         int event_timestamp;
         std::string event_Id;
-        std::string save_path;
 
         std::thread* _remove_thread;
         bool _remove_enable;
