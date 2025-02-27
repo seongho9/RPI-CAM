@@ -6,7 +6,6 @@ using namespace video;
 VideoInitializer::VideoInitializer()
 {
     _handler= VideoHandler::get_instance();
-    _streamer = new VideoStreamerGST();
     _vid_config = config::ProgramConfig::get_instance()->video_config();
     _remove_enable = false;
 
@@ -34,11 +33,36 @@ int VideoInitializer::start(){
     _remove_thread->detach();
     spdlog::info("Remove Thread started successfully");
 
-    if(_streamer->start_server()!= 0){
-        spdlog::error("Failed to start GstStreamer");
-        return -1;
+    
+    const auto address = boost::asio::ip::make_address("0.0.0.0");
+    int port_int = 8550;
+    unsigned short port_s = static_cast<unsigned short>(port_int);
+
+    try{
+        boost::asio::io_context ioc{1};
+
+                
+        MulticastStream* handler = MulticastStream::get_instance("239.255.1.1", 5004);
+        std::string sdp;
+        handler->make_sdp(sdp);
+        std::cout<<sdp<<std::endl;
+       
+        sleep(10);
+        handler->set_stream();
+        handler->play_stream();
+
+        std::unordered_map<std::string, std::string> path;
+        path.insert({"/live", "/dev/video"});
+    
+        RTSPListener* listener = 
+            new RTSPListenerImpl(ioc, boost::asio::ip::tcp::endpoint(address, port_s), path);
+    
+        listener->do_accept();
+        ioc.run();
+        
+    } catch(std::exception& ex) {
+        spdlog::error("ERRORERROR {}", ex.what());
     }
-    spdlog::info("Video streaming started successfully");
 
     return 0;
 }
@@ -46,12 +70,6 @@ int VideoInitializer::start(){
 int VideoInitializer::stop(){
     
     spdlog::info("Stop video streaming...");
-
-    if(_streamer->stop_server()!= 0){
-        spdlog::error("Failed to stop GstStreamer");
-        return -1;
-    }
-    spdlog::info("Video streaming stopped successfully");
 
     _remove_enable = false;
     _remove_thread->join();
