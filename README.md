@@ -59,13 +59,13 @@
 해당 테스트는 RTSP 세션 3개를 가지고 비교하였음
 
 - 개선 이전
-  ![prev](C:\Users\SeonghoJang\Desktop\RPI-CAM 개선\개선 이전.PNG)
+  ![prev](https://github.com/seongho9/RPI-CAM/blob/main/readme/ko/prev.PNG?raw=true)
 
   CPU는 4개의 코어에서 약 40%의 사용량
   메모리의 경우 236MB 사용
   스레드의 경우 총 21개가 생성된 것을 볼 수 있음
 - 개선 이후
-  ![post](C:\Users\SeonghoJang\Desktop\RPI-CAM 개선\개선 자원.PNG)
+  ![post](https://github.com/seongho9/RPI-CAM/blob/main/readme/ko/post.PNG?raw=true)
   
   CPU는 4개의 코어에서 약 6-7%의 사용량
   메모리의 경우 사진에는 130MB로 표기되지만, 영상 프레임의 처리로 인해 130-132MB의 사용량을 보여주고 있음
