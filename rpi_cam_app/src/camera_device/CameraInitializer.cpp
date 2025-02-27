@@ -12,6 +12,7 @@ extern "C"
 #include <ctime>
 
 #include "spdlog/spdlog.h"
+
 #include "camera_device/CameraInitializer.hpp"
 
 using namespace camera_device;
@@ -185,12 +186,12 @@ struct VideoBuffer* CameraInitializer::deque_v4l2_buffer(int* index)
         return nullptr;
     }
 
-    struct VideoBuffer* ret_buffer = new struct VideoBuffer;
+    VideoBuffer* ret_buffer = new VideoBuffer();
 
     ret_buffer->timestamp = time(NULL);
     ret_buffer->metadata = _cam_config->metadata();
     ret_buffer->size = dqbuf.bytesused;
-    ret_buffer->buffer = (uint8_t*)malloc(dqbuf.bytesused);
+    ret_buffer->buffer = new uint8_t[dqbuf.bytesused];
     memcpy(ret_buffer->buffer, _camera_buffers[dqbuf.index], dqbuf.bytesused);
 
     *index = dqbuf.index;
